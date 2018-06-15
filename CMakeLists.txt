@@ -11,6 +11,14 @@ find_package(CUDA REQUIRED)
 list(APPEND REQUIRED_INCLUDE_DIRS ${CUDA_INCLUDE_DIRS})
 list(APPEND REQUIRED_LIBRARIES ${CUDA_LIBRARIES})
 
+find_package(GFlags REQUIRED)
+list(APPEND REQUIRED_INCLUDE_DIRS ${GFlags_INCLUDE_DIRS})
+list(APPEND REQUIRED_LIBRARIES ${GFlags_LIBRARIES})
+
+find_package(GLog REQUIRED)
+list(APPEND REQUIRED_INCLUDE_DIRS ${GLog_INCLUDE_DIRS})
+list(APPEND REQUIRED_LIBRARIES ${GLog_LIBRARIES})
+
 # set compiler flags
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
@@ -18,7 +26,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 # define c++ configs
 
-set(CPP_CONFIG_DIR matchbox/include)
+set(CPP_CONFIG_DIR include/matchbox)
 
 set(CPP_CONFIGS
   ${CPP_CONFIG_DIR}/matchbox.h
@@ -26,7 +34,7 @@ set(CPP_CONFIGS
 
 # define c++ headers
 
-set(CPP_HEADER_DIR matchbox/include)
+set(CPP_HEADER_DIR include/matchbox)
 
 set(CPP_HEADERS
   ${CPP_HEADER_DIR}/exception.h
@@ -42,7 +50,7 @@ set(CPP_SOURCES
 
 # define cuda headers
 
-set(CUDA_HEADER_DIR matchbox/include)
+set(CUDA_HEADER_DIR include/matchbox)
 
 set(CUDA_HEADERS
 )
@@ -53,6 +61,17 @@ set(CUDA_SOURCE_DIR src)
 
 set(CUDA_SOURCES
 )
+
+# build config files
+
+foreach(CPP_HEADER ${CPP_HEADERS})
+  string(REPLACE "include/" "" CPP_HEADER ${CPP_HEADER})
+  set(MATCHBOX_INCLUDES "${MATCHBOX_INCLUDES}\n#include <${CPP_HEADER}>")
+endforeach()
+
+foreach(CPP_CONFIG ${CPP_CONFIGS})
+  configure_file(${CPP_CONFIG}.in ${CPP_CONFIG} @ONLY)
+endforeach()
 
 # build library
 
