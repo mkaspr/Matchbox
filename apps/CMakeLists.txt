@@ -1,1 +1,2 @@
 add_subdirectory(matchbox)
+add_subdirectory(profiler)
