@@ -3,8 +3,15 @@
 #include <exception>
 #include <string>
 
+#ifdef __CUDA_ARCH__
+#define MATCHBOX_THROW(text)                                                   \
+  printf("[%u %u %u][%u %u %u] %s(%u): %s\n",                                  \
+  blockIdx.x, blockIdx.y, blockIdx.z, threadIdx.x, threadIdx.y, threadIdx.z,   \
+  __FILE__, __LINE__, text)
+#else
 #define MATCHBOX_THROW(text)                                                   \
   throw ::matchbox::Exception(__LINE__, __FILE__, text)
+#endif
 
 #define MATCHBOX_ASSERT_MSG(cond, text)                                        \
   if (!(cond)) MATCHBOX_THROW(text)

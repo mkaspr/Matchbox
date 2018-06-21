@@ -20,10 +20,21 @@ set(CPP_SOURCES
 # define cuda sources
 
 set(CUDA_SOURCES
+  aggregate_cost_test.cu
+  aggregator_test.cu
+  disparity_checker_test.cu
+  disparity_computer_test.cu
+  feature_extractor_test.cu
+  feature_map_test.cu
+  image_test.cu
+  matching_cost_test.cu
+  matcher_test.cu
+  median_filter_test.cu
+  util_test.cu
 )
 
 # add executable
 
 include_directories(${REQUIRED_INCLUDE_DIRS})
-add_executable(tests tests.cpp ${CPP_SOURCES} ${CUDA_SOURCES})
+cuda_add_executable(tests tests.cpp ${CPP_SOURCES} ${CUDA_SOURCES})
 target_link_libraries(tests ${REQUIRED_LIBRARIES})
