@@ -51,12 +51,12 @@ TEST(Util, WarpMin)
 {
   thrust::host_vector<int> host_buffer(32);
 
-  for (int j = 0; j < host_buffer.size(); ++j)
+  for (int j = 0; j < (int)host_buffer.size(); ++j)
   {
     int expected_value = std::numeric_limits<int>::max();
     int expected_index = 0;
 
-    for (int i = 0; i < host_buffer.size(); ++i)
+    for (int i = 0; i < (int)host_buffer.size(); ++i)
     {
       host_buffer[i] = (j + i) % host_buffer.size() + 7;
 
@@ -67,7 +67,7 @@ TEST(Util, WarpMin)
       }
     }
 
-    if (expected_index + 1 < host_buffer.size())
+    if (expected_index + 1 < (int)host_buffer.size())
     {
       host_buffer[expected_index + 1] = expected_value;
     }
@@ -90,12 +90,12 @@ TEST(Util, SubWarpMin)
 {
   thrust::host_vector<int> host_buffer(16);
 
-  for (int j = 0; j < host_buffer.size(); ++j)
+  for (int j = 0; j < (int)host_buffer.size(); ++j)
   {
     int expected_value = std::numeric_limits<int>::max();
     int expected_index = 0;
 
-    for (int i = 0; i < host_buffer.size(); ++i)
+    for (int i = 0; i < (int)host_buffer.size(); ++i)
     {
       host_buffer[i] = (j + i) % host_buffer.size() + 7;
 
@@ -106,7 +106,7 @@ TEST(Util, SubWarpMin)
       }
     }
 
-    if (expected_index + 1 < host_buffer.size())
+    if (expected_index + 1 < (int)host_buffer.size())
     {
       host_buffer[expected_index + 1] = expected_value;
     }
@@ -129,12 +129,12 @@ TEST(Util, BlockMin)
 {
   thrust::host_vector<int> host_buffer(128);
 
-  for (int j = 0; j < host_buffer.size(); ++j)
+  for (int j = 0; j < (int)host_buffer.size(); ++j)
   {
     int expected_value = std::numeric_limits<int>::max();
     int expected_index = 0;
 
-    for (int i = 0; i < host_buffer.size(); ++i)
+    for (int i = 0; i < (int)host_buffer.size(); ++i)
     {
       host_buffer[i] = (j + i) % host_buffer.size() + 7;
 
@@ -145,7 +145,7 @@ TEST(Util, BlockMin)
       }
     }
 
-    if (expected_index + 1 < host_buffer.size())
+    if (expected_index + 1 < (int)host_buffer.size())
     {
       host_buffer[expected_index + 1] = expected_value;
     }
@@ -168,12 +168,12 @@ TEST(Util, WarpMinIndex)
 {
   thrust::host_vector<int> host_buffer(32);
 
-  for (int j = 0; j < host_buffer.size(); ++j)
+  for (int j = 0; j < (int)host_buffer.size(); ++j)
   {
     int expected_value = std::numeric_limits<int>::max();
     int expected_index = 0;
 
-    for (int i = 0; i < host_buffer.size(); ++i)
+    for (int i = 0; i < (int)host_buffer.size(); ++i)
     {
       host_buffer[i] = (j + i) % host_buffer.size() + 7;
 
@@ -184,7 +184,7 @@ TEST(Util, WarpMinIndex)
       }
     }
 
-    if (expected_index + 1 < host_buffer.size())
+    if (expected_index + 1 < (int)host_buffer.size())
     {
       host_buffer[expected_index + 1] = expected_value;
     }
@@ -211,12 +211,12 @@ TEST(Util, SubWarpMinIndex)
 {
   thrust::host_vector<int> host_buffer(16);
 
-  for (int j = 0; j < host_buffer.size(); ++j)
+  for (int j = 0; j < (int)host_buffer.size(); ++j)
   {
     int expected_value = std::numeric_limits<int>::max();
     int expected_index = 0;
 
-    for (int i = 0; i < host_buffer.size(); ++i)
+    for (int i = 0; i < (int)host_buffer.size(); ++i)
     {
       host_buffer[i] = (j + i) % host_buffer.size() + 7;
 
@@ -227,7 +227,7 @@ TEST(Util, SubWarpMinIndex)
       }
     }
 
-    if (expected_index + 1 < host_buffer.size())
+    if (expected_index + 1 < (int)host_buffer.size())
     {
       host_buffer[expected_index + 1] = expected_value;
     }
@@ -253,12 +253,12 @@ TEST(Util, BlockMinIndex)
 {
   thrust::host_vector<int> host_buffer(128);
 
-  for (int j = 0; j < host_buffer.size(); ++j)
+  for (int j = 0; j < (int)host_buffer.size(); ++j)
   {
     int expected_value = std::numeric_limits<int>::max();
     int expected_index = 0;
 
-    for (int i = 0; i < host_buffer.size(); ++i)
+    for (int i = 0; i < (int)host_buffer.size(); ++i)
     {
       host_buffer[i] = (j + i) % host_buffer.size() + 7;
 
@@ -269,7 +269,7 @@ TEST(Util, BlockMinIndex)
       }
     }
 
-    if (expected_index + 1 < host_buffer.size())
+    if (expected_index + 1 < (int)host_buffer.size())
     {
       host_buffer[expected_index + 1] = expected_value;
     }

@@ -66,7 +66,7 @@ TEST(Aggregator, AggregateMatching)
   thrust::host_vector<uint8_t> expected(expected_ptr, expected_ptr + count);
   thrust::host_vector<uint16_t> found(found_ptr, found_ptr + count);
 
-  for (int i = 0; i < expected.size(); ++i)
+  for (int i = 0; i < (int)expected.size(); ++i)
   {
     ASSERT_EQ(uint16_t(expected[i]), found[i]);
   }
@@ -90,7 +90,7 @@ TEST(Aggregator, AggregateHorizontal)
   thrust::host_vector<uint8_t> expected(expected_ptr, expected_ptr + count);
   thrust::host_vector<uint16_t> found(found_ptr, found_ptr + count);
 
-  for (int i = 0; i < expected.size(); ++i)
+  for (int i = 0; i < (int)expected.size(); ++i)
   {
     ASSERT_EQ(uint16_t(expected[i]), found[i]);
   }

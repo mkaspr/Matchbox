@@ -17,21 +17,32 @@ void ComputeKernel(const uint16_t* __restrict__ costs, uint8_t* disparities,
   const int h = gridDim.y;
   const int x = blockIdx.x;
   const int y = blockIdx.y;
-  int d = threadIdx.x;
-  uint16_t cost = 0;
+  int d0 = 2 * threadIdx.x + 0;
+  int d1 = 2 * threadIdx.x + 1;
+  uint16_t cost0 = 0;
+  uint16_t cost1 = 0;
 
   const int step = h * w * MAX_DISP;
-  const int offset = y * w * MAX_DISP + x * MAX_DISP + d;
+  const int offset = y * w * MAX_DISP + x * MAX_DISP;
+  const uint32_t* cc = reinterpret_cast<const uint32_t*>(costs);
 
   for (int p = 0; p < paths; ++p)
   {
-    cost += costs[p * step + offset];
+    uint32_t c = cc[(p * step + offset) / 2 + threadIdx.x];
+    cost0 += uint16_t((c >>  0) & 0x0000FFFF);
+    cost1 += uint16_t((c >> 16) & 0x0000FFFF);
   }
+
+  uint16_t cost = min(cost0, cost1);
+  int d = threadIdx.x;
+
+  // BlockMinIndex(cost, d, MAX_DISP / 2);
+  // if (threadIdx.x == d) disparities[y * w + x] = (cost0 <= cost1) ? d0 : d1;
 
   uint16_t temp_cost = cost;
   int temp_d = d;
 
-  BlockMinIndex(cost, d, MAX_DISP);
+  BlockMinIndex(cost, d, MAX_DISP / 2);
 
   __syncthreads();
 
@@ -40,12 +51,12 @@ void ComputeKernel(const uint16_t* __restrict__ costs, uint8_t* disparities,
     temp_cost = 10000;
   }
 
-  BlockMinIndex(temp_cost, temp_d, MAX_DISP);
+  BlockMinIndex(temp_cost, temp_d, MAX_DISP / 2);
 
-  if (threadIdx.x == 0)
+  if (threadIdx.x == d)
   {
     disparities[y * w + x] = (uniqueness * temp_cost < cost &&
-        abs(temp_d - d) > 1) ? 0 : d;
+        abs(temp_d - d) > 1) ? 0 : (cost0 <= cost1) ? d0 : d1;
   }
 }
 
@@ -154,6 +165,7 @@ void DisparityComputer::Compute(Image& image) const
   }
   else
   {
+    const dim3 blocks(d / 2);
     CUDA_LAUNCH(ComputeKernel<128>, grids, blocks, 0, 0, src, dst, p, u);
   }
 }

@@ -9,6 +9,7 @@ DEFINE_string(right, "", "path to right image");
 DEFINE_int32(max_disp, 128, "max disparity");
 DEFINE_int32(degree, 3, "aggregate cost degree");
 DEFINE_int32(iters, 10, "number of iterations");
+DEFINE_bool(check, true, "perform consistency check");
 
 using namespace matchbox;
 
@@ -101,20 +102,28 @@ int main(int argc, char** argv)
     matcher.Match(*matching_cost);
     aggregator.Aggregate(*aggregate_cost);
     left_computer.Compute(*left_disparities);
-    right_computer.Compute(*right_disparities);
     left_filter.Filter(*left_filtered);
-    right_filter.Filter(*right_filtered);
-    checker.Check();
+
+    if (FLAGS_check)
+    {
+      right_computer.Compute(*right_disparities);
+      right_filter.Filter(*right_filtered);
+      checker.Check();
+    }
+
+    cudaDeviceSynchronize();
   }
 
   std::chrono::steady_clock::time_point stop =
       std::chrono::steady_clock::now();
 
   std::chrono::duration<double> delta = stop - start;
-  const double time = std::chrono::duration_cast<std::chrono::microseconds>(delta).count();
-  LOG(INFO) << "Time per frame: " << time / (1000000 * iters);
-  LOG(INFO) << "Frames per sec: " << 1.0 / (time / (1000000 * iters));
-  // current best: ~14 fps
+  auto duration = std::chrono::duration_cast<std::chrono::microseconds>(delta);
+  const double time = duration.count() / (1000000.0 * iters);
+  LOG(INFO) << "Frames per sec: " << 1.0 / time;
+  LOG(INFO) << "Time per frame: " << time;
+  // current best w/o check: ~14.5 fps
+  // current best w/ check:   ~7.8 fps
 
   LOG(INFO) << "Success";
   return 0;

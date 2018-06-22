@@ -25,23 +25,23 @@ MATCHBOX_GLOBAL
 void AggregateKernel(const uint8_t* __restrict__ matching_cost,
     uint16_t* aggregrate_cost, int w, int h, uint16_t P1, uint16_t P2)
 {
-  MATCHBOX_SHARED uint16_t shared[MAX_DISP + 2];
+  MATCHBOX_SHARED uint32_t shared[MAX_DISP + 2];
 
   const int y = blockIdx.x;
   const int k = threadIdx.x;
 
+  int aggr = 0;
+  int vmin = 0;
+
   shared[k] = 64 + P2;
   if (k >= MAX_DISP - 2) shared[k + 2] = 64 + P2;
 
-  int aggr = 0;
-  int vmin = 0;
+  __syncthreads();
 
   for (int x = 0; x < w; ++x)
   {
     const int index = y * w * MAX_DISP + x * MAX_DISP + k;
     const uint8_t cost = matching_cost[index];
-
-    __syncthreads(); // TODO: is this needed? syncthreads happens in BlockMin
 
     const uint16_t left  = shared[k] + P1;
     const uint16_t right = shared[k + 2] + P1;
@@ -50,6 +50,7 @@ void AggregateKernel(const uint8_t* __restrict__ matching_cost,
     aggr = cost + min(aggr, min(left, min(right, far))) - vmin;
     aggregrate_cost[index] = aggr;
     shared[k + 1] = aggr;
+
     vmin = (uint16_t)BlockMin((int)aggr, k, MAX_DISP);
   }
 }
@@ -59,13 +60,15 @@ MATCHBOX_GLOBAL
 void AggregateKernel2(const uint8_t* __restrict__ matching_cost,
     uint16_t* aggregrate_cost, int w, int h, uint16_t P1, uint16_t P2)
 {
-  MATCHBOX_SHARED uint16_t shared[MAX_DISP + 2];
+  MATCHBOX_SHARED uint32_t shared[MAX_DISP + 2];
 
   const int y = blockIdx.x;
   const int k = threadIdx.x;
 
   shared[k] = 64 + P2;
   if (k >= MAX_DISP - 2) shared[k + 2] = 64 + P2;
+
+  __syncthreads();
 
   int aggr = 0;
   int vmin = 0;
@@ -75,8 +78,6 @@ void AggregateKernel2(const uint8_t* __restrict__ matching_cost,
     const int index = y * w * MAX_DISP + x * MAX_DISP + k;
     const uint8_t cost = matching_cost[index];
 
-    __syncthreads();
-
     const uint16_t left  = shared[k] + P1;
     const uint16_t right = shared[k + 2] + P1;
     const uint16_t far   = vmin + P2;
@@ -84,6 +85,7 @@ void AggregateKernel2(const uint8_t* __restrict__ matching_cost,
     aggr = cost + min(aggr, min(left, min(right, far))) - vmin;
     aggregrate_cost[index] = aggr;
     shared[k + 1] = aggr;
+
     vmin = (uint16_t)BlockMin((int)aggr, k, MAX_DISP);
   }
 }
@@ -93,13 +95,15 @@ MATCHBOX_GLOBAL
 void AggregateKernel3(const uint8_t* __restrict__ matching_cost,
     uint16_t* aggregrate_cost, int w, int h, uint16_t P1, uint16_t P2)
 {
-  MATCHBOX_SHARED uint16_t shared[MAX_DISP + 2];
+  MATCHBOX_SHARED uint32_t shared[MAX_DISP + 2];
 
   const int x = blockIdx.x;
   const int k = threadIdx.x;
 
   shared[k] = 64 + P2;
   if (k >= MAX_DISP - 2) shared[k + 2] = 64 + P2;
+
+  __syncthreads();
 
   int aggr = 0;
   int vmin = 0;
@@ -109,8 +113,6 @@ void AggregateKernel3(const uint8_t* __restrict__ matching_cost,
     const int index = y * w * MAX_DISP + x * MAX_DISP + k;
     const uint8_t cost = matching_cost[index];
 
-    __syncthreads();
-
     const uint16_t left  = shared[k] + P1;
     const uint16_t right = shared[k + 2] + P1;
     const uint16_t far   = vmin + P2;
@@ -118,6 +120,7 @@ void AggregateKernel3(const uint8_t* __restrict__ matching_cost,
     aggr = cost + min(aggr, min(left, min(right, far))) - vmin;
     aggregrate_cost[index] = aggr;
     shared[k + 1] = aggr;
+
     vmin = (uint16_t)BlockMin((int)aggr, k, MAX_DISP);
   }
 }
@@ -127,13 +130,15 @@ MATCHBOX_GLOBAL
 void AggregateKernel4(const uint8_t* __restrict__ matching_cost,
     uint16_t* aggregrate_cost, int w, int h, uint16_t P1, uint16_t P2)
 {
-  MATCHBOX_SHARED uint16_t shared[MAX_DISP + 2];
+  MATCHBOX_SHARED uint32_t shared[MAX_DISP + 2];
 
   const int x = blockIdx.x;
   const int k = threadIdx.x;
 
   shared[k] = 64 + P2;
   if (k >= MAX_DISP - 2) shared[k + 2] = 64 + P2;
+
+  __syncthreads();
 
   int aggr = 0;
   int vmin = 0;
@@ -143,8 +148,6 @@ void AggregateKernel4(const uint8_t* __restrict__ matching_cost,
     const int index = y * w * MAX_DISP + x * MAX_DISP + k;
     const uint8_t cost = matching_cost[index];
 
-    __syncthreads();
-
     const uint16_t left  = shared[k] + P1;
     const uint16_t right = shared[k + 2] + P1;
     const uint16_t far   = vmin + P2;
@@ -152,6 +155,7 @@ void AggregateKernel4(const uint8_t* __restrict__ matching_cost,
     aggr = cost + min(aggr, min(left, min(right, far))) - vmin;
     aggregrate_cost[index] = aggr;
     shared[k + 1] = aggr;
+
     vmin = (uint16_t)BlockMin((int)aggr, k, MAX_DISP);
   }
 }
@@ -161,7 +165,7 @@ MATCHBOX_GLOBAL
 void AggregateKernel5(const uint8_t* __restrict__ matching_cost,
     uint16_t* aggregrate_cost, int w, int h, uint16_t P1, uint16_t P2)
 {
-  MATCHBOX_SHARED uint16_t shared[MAX_DISP + 2];
+  MATCHBOX_SHARED uint32_t shared[MAX_DISP + 2];
 
   const int k = threadIdx.x;
   const int ii = blockIdx.x;
@@ -173,6 +177,8 @@ void AggregateKernel5(const uint8_t* __restrict__ matching_cost,
   shared[k] = 64 + P2;
   if (k >= MAX_DISP - 2) shared[k + 2] = 64 + P2;
 
+  __syncthreads();
+
   int aggr = 0;
   int vmin = 0;
 
@@ -183,8 +189,6 @@ void AggregateKernel5(const uint8_t* __restrict__ matching_cost,
     const int index = yy * w * MAX_DISP + xx * MAX_DISP + k;
     const uint8_t cost = matching_cost[index];
 
-    __syncthreads();
-
     const uint16_t left  = shared[k] + P1;
     const uint16_t right = shared[k + 2] + P1;
     const uint16_t far   = vmin + P2;
@@ -192,6 +196,7 @@ void AggregateKernel5(const uint8_t* __restrict__ matching_cost,
     aggr = cost + min(aggr, min(left, min(right, far))) - vmin;
     aggregrate_cost[index] = aggr;
     shared[k + 1] = aggr;
+
     vmin = (uint16_t)BlockMin((int)aggr, k, MAX_DISP);
   }
 }
@@ -201,7 +206,7 @@ MATCHBOX_GLOBAL
 void AggregateKernel6(const uint8_t* __restrict__ matching_cost,
     uint16_t* aggregrate_cost, int w, int h, uint16_t P1, uint16_t P2)
 {
-  MATCHBOX_SHARED uint16_t shared[MAX_DISP + 2];
+  MATCHBOX_SHARED uint32_t shared[MAX_DISP + 2];
 
   const int k = threadIdx.x;
   const int ii = blockIdx.x;
@@ -212,6 +217,8 @@ void AggregateKernel6(const uint8_t* __restrict__ matching_cost,
 
   shared[k] = 64 + P2;
   if (k >= MAX_DISP - 2) shared[k + 2] = 64 + P2;
+
+  __syncthreads();
 
   int aggr = 0;
   int vmin = 0;
@@ -223,8 +230,6 @@ void AggregateKernel6(const uint8_t* __restrict__ matching_cost,
     const int index = yy * w * MAX_DISP + xx * MAX_DISP + k;
     const uint8_t cost = matching_cost[index];
 
-    __syncthreads();
-
     const uint16_t left  = shared[k] + P1;
     const uint16_t right = shared[k + 2] + P1;
     const uint16_t far   = vmin + P2;
@@ -232,6 +237,7 @@ void AggregateKernel6(const uint8_t* __restrict__ matching_cost,
     aggr = cost + min(aggr, min(left, min(right, far))) - vmin;
     aggregrate_cost[index] = aggr;
     shared[k + 1] = aggr;
+
     vmin = (uint16_t)BlockMin((int)aggr, k, MAX_DISP);
   }
 }
@@ -241,7 +247,7 @@ MATCHBOX_GLOBAL
 void AggregateKernel7(const uint8_t* __restrict__ matching_cost,
     uint16_t* aggregrate_cost, int w, int h, uint16_t P1, uint16_t P2)
 {
-  MATCHBOX_SHARED uint16_t shared[MAX_DISP + 2];
+  MATCHBOX_SHARED uint32_t shared[MAX_DISP + 2];
 
   const int k = threadIdx.x;
   const int ii = blockIdx.x;
@@ -252,6 +258,8 @@ void AggregateKernel7(const uint8_t* __restrict__ matching_cost,
 
   shared[k] = 64 + P2;
   if (k >= MAX_DISP - 2) shared[k + 2] = 64 + P2;
+
+  __syncthreads();
 
   int aggr = 0;
   int vmin = 0;
@@ -263,8 +271,6 @@ void AggregateKernel7(const uint8_t* __restrict__ matching_cost,
     const int index = yy * w * MAX_DISP + xx * MAX_DISP + k;
     const uint8_t cost = matching_cost[index];
 
-    __syncthreads();
-
     const uint16_t left  = shared[k] + P1;
     const uint16_t right = shared[k + 2] + P1;
     const uint16_t far   = vmin + P2;
@@ -272,6 +278,7 @@ void AggregateKernel7(const uint8_t* __restrict__ matching_cost,
     aggr = cost + min(aggr, min(left, min(right, far))) - vmin;
     aggregrate_cost[index] = aggr;
     shared[k + 1] = aggr;
+
     vmin = (uint16_t)BlockMin((int)aggr, k, MAX_DISP);
   }
 }
@@ -281,7 +288,7 @@ MATCHBOX_GLOBAL
 void AggregateKernel8(const uint8_t* __restrict__ matching_cost,
     uint16_t* aggregrate_cost, int w, int h, uint16_t P1, uint16_t P2)
 {
-  MATCHBOX_SHARED uint16_t shared[MAX_DISP + 2];
+  MATCHBOX_SHARED uint32_t shared[MAX_DISP + 2];
 
   const int k = threadIdx.x;
   const int ii = blockIdx.x;
@@ -293,6 +300,8 @@ void AggregateKernel8(const uint8_t* __restrict__ matching_cost,
   shared[k] = 64 + P2;
   if (k >= MAX_DISP - 2) shared[k + 2] = 64 + P2;
 
+  __syncthreads();
+
   int aggr = 0;
   int vmin = 0;
 
@@ -303,8 +312,6 @@ void AggregateKernel8(const uint8_t* __restrict__ matching_cost,
     const int index = yy * w * MAX_DISP + xx * MAX_DISP + k;
     const uint8_t cost = matching_cost[index];
 
-    __syncthreads();
-
     const uint16_t left  = shared[k] + P1;
     const uint16_t right = shared[k + 2] + P1;
     const uint16_t far   = vmin + P2;
@@ -312,6 +319,7 @@ void AggregateKernel8(const uint8_t* __restrict__ matching_cost,
     aggr = cost + min(aggr, min(left, min(right, far))) - vmin;
     aggregrate_cost[index] = aggr;
     shared[k + 1] = aggr;
+
     vmin = (uint16_t)BlockMin((int)aggr, k, MAX_DISP);
   }
 }
@@ -375,7 +383,6 @@ void Aggregator::ResizeCost(AggregateCost& cost) const
   const int d = matching_cost_->GetDepth();
   const int p = GetPathCount();
   cost.SetSize(w, h, d, p);
-  cost.Clear(); // TODO: remove
 }
 
 void Aggregator::AggregateMatching(AggregateCost& cost) const
@@ -408,11 +415,11 @@ void Aggregator::AggregateHorizontal(AggregateCost& cost) const
 
   const int offset = w * h * d;
 
-  CUDA_LAUNCH(AggregateKernel<128>, grids, blocks, 0, 0, src, dst, w, h,
-      20, 100);
-
-  CUDA_LAUNCH(AggregateKernel2<128>, grids, blocks, 0, 0, src, dst + offset,
+  CUDA_LAUNCH(AggregateKernel<128>, grids, blocks, 0, 0, src, dst,
       w, h, 20, 100);
+
+  CUDA_LAUNCH(AggregateKernel2<128>, grids, blocks, 0, 0, src,
+      dst + offset, w, h, 20, 100);
 }
 
 void Aggregator::AggregateVertical(AggregateCost& cost) const
@@ -430,13 +437,13 @@ void Aggregator::AggregateVertical(AggregateCost& cost) const
 
   int offset = 2 * w * h * d;
 
-  CUDA_LAUNCH(AggregateKernel3<128>, grids, blocks, 0, 0, src, dst + offset,
-      w, h, 20, 100);
+  CUDA_LAUNCH(AggregateKernel3<128>, grids, blocks, 0, 0, src,
+      dst + offset, w, h, 20, 100);
 
   offset = 3 * w * h * d;
 
-  CUDA_LAUNCH(AggregateKernel4<128>, grids, blocks, 0, 0, src, dst + offset,
-      w, h, 20, 100);
+  CUDA_LAUNCH(AggregateKernel4<128>, grids, blocks, 0, 0, src,
+      dst + offset, w, h, 20, 100);
 }
 
 void Aggregator::AggregateDiagonal(AggregateCost& cost) const
@@ -454,23 +461,23 @@ void Aggregator::AggregateDiagonal(AggregateCost& cost) const
 
   int offset = 4 * w * h * d;
 
-  CUDA_LAUNCH(AggregateKernel5<128>, grids, blocks, 0, 0, src, dst + offset,
-      w, h, 20, 100);
+  CUDA_LAUNCH(AggregateKernel5<128>, grids, blocks, 0, 0, src,
+      dst + offset, w, h, 20, 100);
 
   offset = 5 * w * h * d;
 
-  CUDA_LAUNCH(AggregateKernel6<128>, grids, blocks, 0, 0, src, dst + offset,
-      w, h, 20, 100);
+  CUDA_LAUNCH(AggregateKernel6<128>, grids, blocks, 0, 0, src,
+      dst + offset, w, h, 20, 100);
 
   offset = 6 * w * h * d;
 
-  CUDA_LAUNCH(AggregateKernel7<128>, grids, blocks, 0, 0, src, dst + offset,
-      w, h, 20, 100);
+  CUDA_LAUNCH(AggregateKernel7<128>, grids, blocks, 0, 0, src,
+      dst + offset, w, h, 20, 100);
 
   offset = 7 * w * h * d;
 
-  CUDA_LAUNCH(AggregateKernel8<128>, grids, blocks, 0, 0, src, dst + offset,
-      w, h, 20, 100);
+  CUDA_LAUNCH(AggregateKernel8<128>, grids, blocks, 0, 0, src,
+      dst + offset, w, h, 20, 100);
 }
 
 } // namespace matchbox

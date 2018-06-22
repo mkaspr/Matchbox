@@ -97,7 +97,7 @@ TEST(FeatureExtractor, Extract)
   thrust::host_vector<uint64_t> found(ptr, ptr + map.GetTotal());
   const uint64_t* data = reinterpret_cast<const uint64_t*>(expected.data);
 
-  for (int i = 0; i < found.size(); ++i)
+  for (int i = 0; i < (int)found.size(); ++i)
   {
     ASSERT_EQ(data[i], found[i]);
   }

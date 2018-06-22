@@ -72,7 +72,7 @@ TEST(Image, Load)
   Image image;
   cv::Mat expected(7, 9, CV_8UC1);
 
-  for (int i = 0; i < expected.total(); ++i)
+  for (int i = 0; i < (int)expected.total(); ++i)
   {
     expected.data[i] = i;
   }
@@ -112,7 +112,7 @@ TEST(Image, Save)
   ASSERT_EQ(9, found.cols);
   ASSERT_EQ(7, found.rows);
 
-  for (int i = 0; i < found.total(); ++i)
+  for (int i = 0; i < (int)found.total(); ++i)
   {
     ASSERT_EQ(i, found.data[i]);
   }

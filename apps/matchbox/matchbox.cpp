@@ -28,6 +28,9 @@ int main(int argc, char** argv)
   google::InitGoogleLogging(argv[0]);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
+  std::shared_ptr<Image> left_result;
+  std::shared_ptr<Image> right_result;
+
   LOG(INFO) << "Parsing flags...";
   MATCHBOX_ASSERT_MSG(!FLAGS_left.empty(), "left image required");
   MATCHBOX_ASSERT_MSG(!FLAGS_right.empty(), "right image required");
@@ -75,35 +78,37 @@ int main(int argc, char** argv)
   left_computer.SetUniqueness(FLAGS_uniqueness);
   left_computer.SetInverted(false);
   left_computer.Compute(*left_disparities);
-
-  LOG(INFO) << "Computing right disparities...";
-  std::shared_ptr<Image> right_disparities;
-  right_disparities = std::make_shared<Image>();
-  DisparityComputer right_computer(aggregate_cost);
-  right_computer.SetUniqueness(FLAGS_uniqueness);
-  right_computer.SetInverted(true);
-  right_computer.Compute(*right_disparities);
-
-  std::shared_ptr<Image> left_filtered = left_disparities;
-  std::shared_ptr<Image> right_filtered = right_disparities;
+  left_result = left_disparities;
 
   if (FLAGS_filter)
   {
     LOG(INFO) << "Filtering left disparities...";
-    left_filtered = std::make_shared<Image>();
+    left_result = std::make_shared<Image>();
     MedianFilter left_filter(left_disparities);
-    left_filter.Filter(*left_filtered);
-
-    LOG(INFO) << "Filtering right disparities...";
-    right_filtered = std::make_shared<Image>();
-    MedianFilter right_filter(right_disparities);
-    right_filter.Filter(*right_filtered);
+    left_filter.Filter(*left_result);
   }
 
   if (FLAGS_check)
   {
+    LOG(INFO) << "Computing right disparities...";
+    std::shared_ptr<Image> right_disparities;
+    right_disparities = std::make_shared<Image>();
+    DisparityComputer right_computer(aggregate_cost);
+    right_computer.SetUniqueness(FLAGS_uniqueness);
+    right_computer.SetInverted(true);
+    right_computer.Compute(*right_disparities);
+    right_result = right_disparities;
+
+    if (FLAGS_filter)
+    {
+      LOG(INFO) << "Filtering right disparities...";
+      right_result = std::make_shared<Image>();
+      MedianFilter right_filter(right_disparities);
+      right_filter.Filter(*right_result);
+    }
+
     LOG(INFO) << "Checking disparities...";
-    DisparityChecker checker(left_filtered, right_filtered);
+    DisparityChecker checker(left_result, right_result);
     checker.SetMode(GetCheckerMode());
     checker.SetMaxDifference(1);
     checker.Check();
@@ -115,17 +120,17 @@ int main(int argc, char** argv)
   const uint8_t* data;
   cv::Mat result;
 
-  data = left_filtered->GetData();
+  data = left_result->GetData();
   result = cv::Mat(h, w, CV_8UC1);
   CUDA_DEBUG(cudaMemcpy(result.data, data, w * h, cudaMemcpyDeviceToHost));
-  cv::imshow("Left Disparities", 2 * result);
+  cv::imshow("Left Disparities", 4 * result);
 
-  if (FLAGS_check_both)
+  if (FLAGS_check && FLAGS_check_both)
   {
-    data = right_filtered->GetData();
+    data = right_result->GetData();
     result = cv::Mat(h, w, CV_8UC1);
     CUDA_DEBUG(cudaMemcpy(result.data, data, w * h, cudaMemcpyDeviceToHost));
-    cv::imshow("Right Disparities", 2 * result);
+    cv::imshow("Right Disparities", 4 * result);
   }
 
   while (cv::waitKey(10) != 27);

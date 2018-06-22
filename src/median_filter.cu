@@ -3,8 +3,7 @@
 #include <matchbox/exception.h>
 #include <matchbox/image.h>
 
-#define BLOCK_DIM 32
-// #define SHARED_SIZE 1156
+#define BLOCK_DIM 16
 
 namespace matchbox
 {
@@ -15,44 +14,45 @@ void FilterKernel(const uint8_t* __restrict__ src, uint8_t* __restrict__ dst,
 {
   const int x = blockIdx.x * blockDim.x + threadIdx.x;
   const int y = blockIdx.y * blockDim.y + threadIdx.y;
+  const int index = y * w + x;
 
-  if (x < w && y < h)
+  if (x > 1 && y > 1 && x < w - 1 && y < h - 1)
   {
-    int count = 0;
     uint8_t kernel[9];
 
     for (int i = -1; i <= 1; ++i)
     {
-      if (y + i < 0 || y + i >= h) continue;
-
       for (int j = -1; j <= 1; ++j)
       {
-        if (x + j < 0 || x + j >= w) continue;
         const int index = (y + i) * w + (x + j);
-        kernel[count++] = src[index];
+        kernel[(i+1)*3+(j+1)] = src[index];
       }
     }
 
-    int mindex = count / 2;
+    int mindex = 4;
 
     for (int i = 0; i <= mindex; ++i)
     {
-      for (int j = i + 1; j < count; ++j)
+      int min_index = 0;
+
+      for (int j = i + 1; j < 9; ++j)
       {
-        if (kernel[i] > kernel[j])
+        if (kernel[j] < kernel[min_index])
         {
-          uint8_t temp = kernel[i];
-          kernel[i] = kernel[j];
-          kernel[j] = temp;
+          min_index = j;
         }
       }
+
+      const uint8_t temp = kernel[i];
+      kernel[i] = kernel[min_index];
+      kernel[min_index] = temp;
     }
 
-    const int index = y * w + x;
     dst[index] = kernel[mindex];
-
-    // const int index = y * w + x;
-    // dst[index] = src[index];
+  }
+  else if (x < w && y < h)
+  {
+    dst[index] = src[index];
   }
 }
 
