@@ -122,8 +122,8 @@ int main(int argc, char** argv)
   const double time = duration.count() / (1000000.0 * iters);
   LOG(INFO) << "Frames per sec: " << 1.0 / time;
   LOG(INFO) << "Time per frame: " << time;
-  // current best w/o check: ~14.5 fps
-  // current best w/ check:   ~7.8 fps
+  // current best w/o check: ~21.1 fps
+  // current best w/ check:   ~9.4 fps
 
   LOG(INFO) << "Success";
   return 0;
