@@ -19,7 +19,7 @@ TEST(AggregateCost, Constructor)
   ASSERT_EQ(nullptr, a.GetData());
 
   AggregateCost b(3, 4, 6, 2);
-  ASSERT_EQ(288, b.GetBytes());
+  ASSERT_EQ(144, b.GetBytes());
   ASSERT_EQ(144, b.GetTotal());
   ASSERT_EQ(3, b.GetWidth());
   ASSERT_EQ(4, b.GetHeight());
@@ -28,7 +28,7 @@ TEST(AggregateCost, Constructor)
   ASSERT_NE(nullptr, b.GetData());
 
   AggregateCost c(b);
-  ASSERT_EQ(288, c.GetBytes());
+  ASSERT_EQ(144, c.GetBytes());
   ASSERT_EQ(144, c.GetTotal());
   ASSERT_EQ(3, c.GetWidth());
   ASSERT_EQ(4, c.GetHeight());
@@ -40,11 +40,11 @@ TEST(AggregateCost, Constructor)
 TEST(AggregateCost, Size)
 {
   AggregateCost cost;
-  uint16_t* data;
+  uint8_t* data;
 
   cost.SetSize(3, 4, 6, 2);
   data = cost.GetData();
-  ASSERT_EQ(288, cost.GetBytes());
+  ASSERT_EQ(144, cost.GetBytes());
   ASSERT_EQ(144, cost.GetTotal());
   ASSERT_EQ(3, cost.GetWidth());
   ASSERT_EQ(4, cost.GetHeight());
@@ -53,7 +53,7 @@ TEST(AggregateCost, Size)
   ASSERT_NE(nullptr, cost.GetData());
 
   cost.SetSize(3, 2, 4, 6);
-  ASSERT_EQ(288, cost.GetBytes());
+  ASSERT_EQ(144, cost.GetBytes());
   ASSERT_EQ(144, cost.GetTotal());
   ASSERT_EQ(3, cost.GetWidth());
   ASSERT_EQ(2, cost.GetHeight());

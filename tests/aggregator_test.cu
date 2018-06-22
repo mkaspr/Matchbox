@@ -16,7 +16,7 @@ inline std::shared_ptr<MatchingCost> CreateMatchingCost()
 {
   const int w = 64;
   const int h = 48;
-  const int d = 16;
+  const int d = 128;
 
   std::shared_ptr<MatchingCost> cost;
   cost = std::make_shared<MatchingCost>(w, h, d);
@@ -62,13 +62,13 @@ TEST(Aggregator, AggregateMatching)
 
   const int count = matching_cost->GetTotal();
   thrust::device_ptr<const uint8_t> expected_ptr(matching_cost->GetData());
-  thrust::device_ptr<const uint16_t> found_ptr(aggregate_cost.GetData());
+  thrust::device_ptr<const uint8_t> found_ptr(aggregate_cost.GetData());
   thrust::host_vector<uint8_t> expected(expected_ptr, expected_ptr + count);
-  thrust::host_vector<uint16_t> found(found_ptr, found_ptr + count);
+  thrust::host_vector<uint8_t> found(found_ptr, found_ptr + count);
 
   for (int i = 0; i < (int)expected.size(); ++i)
   {
-    ASSERT_EQ(uint16_t(expected[i]), found[i]);
+    ASSERT_EQ(uint8_t(expected[i]), found[i]);
   }
 }
 
@@ -86,13 +86,13 @@ TEST(Aggregator, AggregateHorizontal)
 
   const int count = matching_cost->GetTotal();
   thrust::device_ptr<const uint8_t> expected_ptr(matching_cost->GetData());
-  thrust::device_ptr<const uint16_t> found_ptr(aggregate_cost.GetData());
+  thrust::device_ptr<const uint8_t> found_ptr(aggregate_cost.GetData());
   thrust::host_vector<uint8_t> expected(expected_ptr, expected_ptr + count);
-  thrust::host_vector<uint16_t> found(found_ptr, found_ptr + count);
+  thrust::host_vector<uint8_t> found(found_ptr, found_ptr + count);
 
   for (int i = 0; i < (int)expected.size(); ++i)
   {
-    ASSERT_EQ(uint16_t(expected[i]), found[i]);
+    ASSERT_EQ(uint8_t(expected[i]), found[i]);
   }
 }
 

@@ -20,7 +20,7 @@ namespace
 inline std::shared_ptr<FeatureMap> CreateLeftFeatures()
 {
   std::shared_ptr<FeatureMap> features;
-  features = std::make_shared<FeatureMap>(640, 480);
+  features = std::make_shared<FeatureMap>(160, 120);
   const int w = features->GetWidth();
   const int h = features->GetHeight();
   std::vector<uint64_t> data(w * h);
@@ -43,7 +43,7 @@ inline std::shared_ptr<FeatureMap> CreateLeftFeatures()
 inline std::shared_ptr<FeatureMap> CreateRightFeatures()
 {
   std::shared_ptr<FeatureMap> features;
-  features = std::make_shared<FeatureMap>(640, 480);
+  features = std::make_shared<FeatureMap>(160, 120);
   const int w = features->GetWidth();
   const int h = features->GetHeight();
   std::vector<uint64_t> data(w * h);

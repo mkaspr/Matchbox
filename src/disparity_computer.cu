@@ -10,7 +10,7 @@ namespace matchbox
 
 template <int MAX_DISP>
 MATCHBOX_GLOBAL
-void ComputeKernel(const uint16_t* __restrict__ costs, uint8_t* disparities,
+void ComputeKernel(const uint8_t* __restrict__ costs, uint8_t* disparities,
     int paths, float uniqueness)
 {
   const int w = gridDim.x;
@@ -19,27 +19,27 @@ void ComputeKernel(const uint16_t* __restrict__ costs, uint8_t* disparities,
   const int y = blockIdx.y;
   int d0 = 2 * threadIdx.x + 0;
   int d1 = 2 * threadIdx.x + 1;
-  uint16_t cost0 = 0;
-  uint16_t cost1 = 0;
+  uint32_t cost0 = 0;
+  uint32_t cost1 = 0;
 
   const int step = h * w * MAX_DISP;
   const int offset = y * w * MAX_DISP + x * MAX_DISP;
-  const uint32_t* cc = reinterpret_cast<const uint32_t*>(costs);
+  const uint16_t* cc = reinterpret_cast<const uint16_t*>(costs);
 
   for (int p = 0; p < paths; ++p)
   {
-    uint32_t c = cc[(p * step + offset) / 2 + threadIdx.x];
-    cost0 += uint16_t((c >>  0) & 0x0000FFFF);
-    cost1 += uint16_t((c >> 16) & 0x0000FFFF);
+    uint16_t c = cc[(p * step + offset) / 2 + threadIdx.x];
+    cost0 += uint8_t((c >> 0) & 0x00FF);
+    cost1 += uint8_t((c >> 8) & 0x00FF);
   }
 
-  uint16_t cost = min(cost0, cost1);
+  uint32_t cost = min(cost0, cost1);
   int d = threadIdx.x;
 
   // BlockMinIndex(cost, d, MAX_DISP / 2);
   // if (threadIdx.x == d) disparities[y * w + x] = (cost0 <= cost1) ? d0 : d1;
 
-  uint16_t temp_cost = cost;
+  uint32_t temp_cost = cost;
   int temp_d = d;
 
   BlockMinIndex(cost, d, MAX_DISP / 2);
@@ -48,7 +48,7 @@ void ComputeKernel(const uint16_t* __restrict__ costs, uint8_t* disparities,
 
   if (threadIdx.x == d)
   {
-    temp_cost = 10000;
+    temp_cost = 255;
   }
 
   BlockMinIndex(temp_cost, temp_d, MAX_DISP / 2);
@@ -62,7 +62,7 @@ void ComputeKernel(const uint16_t* __restrict__ costs, uint8_t* disparities,
 
 template <int MAX_DISP>
 MATCHBOX_GLOBAL
-void ComputeInvertedKernel(const uint16_t* __restrict__ costs,
+void ComputeInvertedKernel(const uint8_t* __restrict__ costs,
     uint8_t* disparities, int paths, float uniqueness)
 {
   const int w = gridDim.x;
@@ -70,7 +70,7 @@ void ComputeInvertedKernel(const uint16_t* __restrict__ costs,
   const int x = blockIdx.x;
   const int y = blockIdx.y;
   int d = threadIdx.x;
-  uint16_t cost = 0;
+  uint32_t cost = 0;
 
   const int step = h * w * MAX_DISP;
   const int offset = y * w * MAX_DISP + (x + d) * MAX_DISP + d;
@@ -87,7 +87,7 @@ void ComputeInvertedKernel(const uint16_t* __restrict__ costs,
     cost = paths * (64 + 100);
   }
 
-  uint16_t temp_cost = cost;
+  uint32_t temp_cost = cost;
   int temp_d = d;
 
   BlockMinIndex(cost, d, MAX_DISP);
@@ -96,7 +96,7 @@ void ComputeInvertedKernel(const uint16_t* __restrict__ costs,
 
   if (threadIdx.x == d)
   {
-    temp_cost = 10000;
+    temp_cost = 255;
   }
 
   BlockMinIndex(temp_cost, temp_d, MAX_DISP);
@@ -156,7 +156,7 @@ void DisparityComputer::Compute(Image& image) const
 
   image.SetSize(w, h);
   uint8_t* dst = image.GetData();
-  const uint16_t* src = cost_->GetData();
+  const uint8_t* src = cost_->GetData();
   float u = uniqueness_;
 
   if (inverted_)

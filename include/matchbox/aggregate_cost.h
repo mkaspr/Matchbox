@@ -34,9 +34,9 @@ class AggregateCost
 
     void SetSize(int w, int h, int d, int p);
 
-    const uint16_t* GetData() const;
+    const uint8_t* GetData() const;
 
-    uint16_t* GetData();
+    uint8_t* GetData();
 
     void Clear();
 
@@ -50,7 +50,7 @@ class AggregateCost
 
     int paths_;
 
-    uint16_t* data_;
+    uint8_t* data_;
 };
 
 } // namespace matchbox

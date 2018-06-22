@@ -25,7 +25,7 @@ inline std::shared_ptr<AggregateCost> CreateAggregateCost()
   cost = std::make_shared<AggregateCost>();
   cost->SetSize(w, h, d, p);
 
-  std::vector<uint16_t> data(cost->GetTotal());
+  std::vector<uint8_t> data(cost->GetTotal());
   int index = 0;
 
   for (int i = 0; i < h; ++i)
@@ -51,7 +51,7 @@ inline std::shared_ptr<AggregateCost> CreateAggregateCost()
   }
 
   const cudaMemcpyKind kind = cudaMemcpyHostToDevice;
-  const size_t bytes = sizeof(uint16_t) * data.size();
+  const size_t bytes = sizeof(uint8_t) * data.size();
   CUDA_ASSERT(cudaMemcpy(cost->GetData(), data.data(), bytes, kind));
   return cost;
 }

@@ -9,7 +9,7 @@ namespace matchbox
 
 MATCHBOX_GLOBAL
 void AggregateMatchingKernel(const uint8_t* __restrict__ matching_cost,
-    uint16_t* aggregrate_cost, int count)
+    uint8_t* aggregrate_cost, int count)
 {
   const int index = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -22,7 +22,7 @@ void AggregateMatchingKernel(const uint8_t* __restrict__ matching_cost,
 template <int MAX_DISP>
 MATCHBOX_GLOBAL
 void AggregateKernel(const uint8_t* __restrict__ matching_cost,
-    uint16_t* aggregrate_cost, int w, int h, uint16_t P1, uint16_t P2)
+    uint8_t* aggregrate_cost, int w, int h, uint8_t P1, uint8_t P2)
 {
   uint32_t shared[MAX_DISP + 2];
 
@@ -78,14 +78,14 @@ void AggregateKernel(const uint8_t* __restrict__ matching_cost,
     shared[k + 4] = aggr[3];
 
     const int a = min(aggr[0], min(aggr[1], min(aggr[2], aggr[3])));
-    vmin = (uint16_t)WarpMin(a);
+    vmin = (uint8_t)WarpMin(a);
   }
 }
 
 template <int MAX_DISP>
 MATCHBOX_GLOBAL
 void AggregateKernel2(const uint8_t* __restrict__ matching_cost,
-    uint16_t* aggregrate_cost, int w, int h, uint16_t P1, uint16_t P2)
+    uint8_t* aggregrate_cost, int w, int h, uint8_t P1, uint8_t P2)
 {
   uint32_t shared[MAX_DISP + 2];
 
@@ -141,14 +141,14 @@ void AggregateKernel2(const uint8_t* __restrict__ matching_cost,
     shared[k + 4] = aggr[3];
 
     const int a = min(aggr[0], min(aggr[1], min(aggr[2], aggr[3])));
-    vmin = (uint16_t)WarpMin(a);
+    vmin = (uint8_t)WarpMin(a);
   }
 }
 
 template <int MAX_DISP>
 MATCHBOX_GLOBAL
 void AggregateKernel3(const uint8_t* __restrict__ matching_cost,
-    uint16_t* aggregrate_cost, int w, int h, uint16_t P1, uint16_t P2)
+    uint8_t* aggregrate_cost, int w, int h, uint8_t P1, uint8_t P2)
 {
   uint32_t shared[MAX_DISP + 2];
 
@@ -204,14 +204,14 @@ void AggregateKernel3(const uint8_t* __restrict__ matching_cost,
     shared[k + 4] = aggr[3];
 
     const int a = min(aggr[0], min(aggr[1], min(aggr[2], aggr[3])));
-    vmin = (uint16_t)WarpMin(a);
+    vmin = (uint8_t)WarpMin(a);
   }
 }
 
 template <int MAX_DISP>
 MATCHBOX_GLOBAL
 void AggregateKernel4(const uint8_t* __restrict__ matching_cost,
-    uint16_t* aggregrate_cost, int w, int h, uint16_t P1, uint16_t P2)
+    uint8_t* aggregrate_cost, int w, int h, uint8_t P1, uint8_t P2)
 {
   uint32_t shared[MAX_DISP + 2];
 
@@ -267,14 +267,14 @@ void AggregateKernel4(const uint8_t* __restrict__ matching_cost,
     shared[k + 4] = aggr[3];
 
     const int a = min(aggr[0], min(aggr[1], min(aggr[2], aggr[3])));
-    vmin = (uint16_t)WarpMin(a);
+    vmin = (uint8_t)WarpMin(a);
   }
 }
 
 template <int MAX_DISP>
 MATCHBOX_GLOBAL
 void AggregateKernel5(const uint8_t* __restrict__ matching_cost,
-    uint16_t* aggregrate_cost, int w, int h, uint16_t P1, uint16_t P2)
+    uint8_t* aggregrate_cost, int w, int h, uint8_t P1, uint8_t P2)
 {
   uint32_t shared[MAX_DISP + 2];
 
@@ -336,14 +336,14 @@ void AggregateKernel5(const uint8_t* __restrict__ matching_cost,
     shared[k + 4] = aggr[3];
 
     const int a = min(aggr[0], min(aggr[1], min(aggr[2], aggr[3])));
-    vmin = (uint16_t)WarpMin(a);
+    vmin = (uint8_t)WarpMin(a);
   }
 }
 
 template <int MAX_DISP>
 MATCHBOX_GLOBAL
 void AggregateKernel6(const uint8_t* __restrict__ matching_cost,
-    uint16_t* aggregrate_cost, int w, int h, uint16_t P1, uint16_t P2)
+    uint8_t* aggregrate_cost, int w, int h, uint8_t P1, uint8_t P2)
 {
   uint32_t shared[MAX_DISP + 2];
 
@@ -405,14 +405,14 @@ void AggregateKernel6(const uint8_t* __restrict__ matching_cost,
     shared[k + 4] = aggr[3];
 
     const int a = min(aggr[0], min(aggr[1], min(aggr[2], aggr[3])));
-    vmin = (uint16_t)WarpMin(a);
+    vmin = (uint8_t)WarpMin(a);
   }
 }
 
 template <int MAX_DISP>
 MATCHBOX_GLOBAL
 void AggregateKernel7(const uint8_t* __restrict__ matching_cost,
-    uint16_t* aggregrate_cost, int w, int h, uint16_t P1, uint16_t P2)
+    uint8_t* aggregrate_cost, int w, int h, uint8_t P1, uint8_t P2)
 {
   uint32_t shared[MAX_DISP + 2];
 
@@ -474,14 +474,14 @@ void AggregateKernel7(const uint8_t* __restrict__ matching_cost,
     shared[k + 4] = aggr[3];
 
     const int a = min(aggr[0], min(aggr[1], min(aggr[2], aggr[3])));
-    vmin = (uint16_t)WarpMin(a);
+    vmin = (uint8_t)WarpMin(a);
   }
 }
 
 template <int MAX_DISP>
 MATCHBOX_GLOBAL
 void AggregateKernel8(const uint8_t* __restrict__ matching_cost,
-    uint16_t* aggregrate_cost, int w, int h, uint16_t P1, uint16_t P2)
+    uint8_t* aggregrate_cost, int w, int h, uint8_t P1, uint8_t P2)
 {
   uint32_t shared[MAX_DISP + 2];
 
@@ -543,7 +543,7 @@ void AggregateKernel8(const uint8_t* __restrict__ matching_cost,
     shared[k + 4] = aggr[3];
 
     const int a = min(aggr[0], min(aggr[1], min(aggr[2], aggr[3])));
-    vmin = (uint16_t)WarpMin(a);
+    vmin = (uint8_t)WarpMin(a);
   }
 }
 
@@ -627,7 +627,7 @@ void Aggregator::AggregateMatching(AggregateCost& cost) const
   const int threads = w * h * d;
   const int grids = GetGrids(threads, blocks);
   const uint8_t* src = matching_cost_->GetData();
-  uint16_t* dst = cost.GetData();
+  uint8_t* dst = cost.GetData();
 
   CUDA_LAUNCH(AggregateMatchingKernel, grids, blocks, 0, 0, src, dst, threads);
 }
@@ -643,7 +643,7 @@ void Aggregator::AggregateHorizontal(AggregateCost& cost) const
   const int grids = h;
   const int blocks = d / 4;
   const uint8_t* src = matching_cost_->GetData();
-  uint16_t* dst = cost.GetData();
+  uint8_t* dst = cost.GetData();
 
   const int offset = w * h * d;
 
@@ -665,7 +665,7 @@ void Aggregator::AggregateVertical(AggregateCost& cost) const
   const int grids = w;
   const int blocks = d / 4;
   const uint8_t* src = matching_cost_->GetData();
-  uint16_t* dst = cost.GetData();
+  uint8_t* dst = cost.GetData();
 
   int offset = 2 * w * h * d;
 
@@ -689,7 +689,7 @@ void Aggregator::AggregateDiagonal(AggregateCost& cost) const
   const int blocks = d / 4;
   const int grids = w + h - 1;
   const uint8_t* src = matching_cost_->GetData();
-  uint16_t* dst = cost.GetData();
+  uint8_t* dst = cost.GetData();
 
   int offset = 4 * w * h * d;
 

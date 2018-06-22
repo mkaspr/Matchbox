@@ -49,7 +49,7 @@ AggregateCost::~AggregateCost()
 
 size_t AggregateCost::GetBytes() const
 {
-  return sizeof(uint16_t) * GetTotal();
+  return sizeof(uint8_t) * GetTotal();
 }
 
 int AggregateCost::GetTotal() const
@@ -79,7 +79,7 @@ int AggregateCost::GetPaths() const
 
 void AggregateCost::SetSize(int w, int h, int d, int p)
 {
-  MATCHBOX_DEBUG(w >= 0 && h >= 0 && d >= 0);
+  MATCHBOX_DEBUG(w >= 0 && h >= 0 && d >= 0 && p >= 0);
   const int curr_total = GetTotal();
   width_ = w; height_ = h; depth_ = d; paths_ = p;
   const int new_total = GetTotal();
@@ -91,12 +91,12 @@ void AggregateCost::SetSize(int w, int h, int d, int p)
   }
 }
 
-const uint16_t* AggregateCost::GetData() const
+const uint8_t* AggregateCost::GetData() const
 {
   return data_;
 }
 
-uint16_t* AggregateCost::GetData()
+uint8_t* AggregateCost::GetData()
 {
   return data_;
 }
