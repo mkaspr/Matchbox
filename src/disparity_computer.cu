@@ -10,15 +10,14 @@ namespace matchbox
 
 template <typename T>
 MATCHBOX_DEVICE
-inline T WarpMinIndex2(T value, int index, int warp_size = 32)
+inline T WarpMinIndex2(T value, int index)
 {
-  for (int i = warp_size >> 1; i > 0; i >>= 1)
+  for (int i = 16; i > 0; i >>= 1)
   {
-    T temp_value = ShuffleDown(value, i, warp_size);
-    int temp_index = ShuffleDown(index, i, warp_size);
+    T temp_value   = __shfl_down(value, i, 32);
+    int temp_index = __shfl_down(index, i, 32);
 
-    if (temp_value < value) // TODO: check if can be used instead
-    // if ((temp_value < value) || (temp_value == value && temp_index < index))
+    if (temp_value < value)
     {
       value = temp_value;
       index = temp_index;
@@ -55,22 +54,21 @@ void ComputeKernel(const uint8_t* __restrict__ costs, uint8_t* disparities,
     nc1 = __vadd2(nc1, cc1);
   }
 
-  const uint32_t cost0 = uint32_t((nc0 >>  0) & 0xFFFF);
-  const uint32_t cost1 = uint32_t((nc0 >> 16) & 0xFFFF);
-  const uint32_t cost2 = uint32_t((nc1 >>  0) & 0xFFFF);
-  const uint32_t cost3 = uint32_t((nc1 >> 16) & 0xFFFF);
+  const uint32_t mask = __vcmpleu2(nc0, nc1);
+  uint32_t a = (mask & nc0) | ((mask ^ 0xFFFFFFFF) & nc1);
+  uint32_t b = (mask & 0x00010000) | ((mask ^ 0xFFFFFFFF) & 0x00030002);
 
-  uint32_t cost = min(cost0, min(cost1, min(cost2, cost3)));
-  int dd = 4 * threadIdx.x;
+  if ((a & 0xFFFF) > (a >> 16))
+  {
+    a >>= 16;
+    b >>= 16;
+  }
 
-  if (cost == cost0) dd = 4 * threadIdx.x + 0;
-  else if (cost == cost1) dd = 4 * threadIdx.x + 1;
-  else if (cost == cost2) dd = 4 * threadIdx.x + 2;
-  else if (cost == cost3) dd = 4 * threadIdx.x + 3;
-
+  const uint32_t cost = a & 0xFFFF;
+  const int dd = 4 * threadIdx.x + (b & 0xFFFF);
   int d = threadIdx.x;
 
-  // WarpMinIndex(cost, d);
+  // d = WarpMinIndex2(cost, d);
   // if (threadIdx.x == d) disparities[y * w + x] = dd;
 
   uint32_t temp_cost = cost;
