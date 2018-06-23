@@ -8,23 +8,26 @@
 namespace matchbox
 {
 
-template <typename T>
 MATCHBOX_DEVICE
-inline T WarpMinIndex2(T value, int index)
+inline void WarpMinIndex2(uint32_t& value, uint32_t& index)
 {
-  for (int i = 16; i > 0; i >>= 1)
+  if ((value & 0xFFFF) > (value >> 16))
   {
-    T temp_value   = __shfl_down(value, i, 32);
-    int temp_index = __shfl_down(index, i, 32);
-
-    if (temp_value < value)
-    {
-      value = temp_value;
-      index = temp_index;
-    }
+    value = value << 16 | value >> 16;
+    index = index << 16 | index >> 16;
   }
 
-  return __shfl(index, 0, 32);
+  for (int i = 16; i > 0; i >>= 1)
+  {
+    const uint32_t temp_value = __shfl_down(value, i, 32);
+    const uint32_t temp_index = __shfl_down(index, i, 32);
+    const uint32_t mask = __vcmpleu2(value, temp_value);
+    value = (mask & value) | ((mask ^ 0xFFFFFFFF) & temp_value);
+    index = (mask & index) | ((mask ^ 0xFFFFFFFF) & temp_index);
+  }
+
+  value = __shfl(value, 0, 32);
+  index = __shfl(index, 0, 32);
 }
 
 template <int MAX_DISP, int PATHS>
@@ -54,39 +57,24 @@ void ComputeKernel(const uint8_t* __restrict__ costs, uint8_t* disparities,
     nc1 = __vadd2(nc1, cc1);
   }
 
+  const uint32_t ni0 = ((4 * threadIdx.x + 1) << 16) | (4 * threadIdx.x + 0);
+  const uint32_t ni1 = ((4 * threadIdx.x + 3) << 16) | (4 * threadIdx.x + 2);
+
   const uint32_t mask = __vcmpleu2(nc0, nc1);
-  uint32_t a = (mask & nc0) | ((mask ^ 0xFFFFFFFF) & nc1);
-  uint32_t b = (mask & 0x00010000) | ((mask ^ 0xFFFFFFFF) & 0x00030002);
+  uint32_t value = (mask & nc0) | ((mask ^ 0xFFFFFFFF) & nc1);
+  uint32_t index = (mask & ni0) | ((mask ^ 0xFFFFFFFF) & ni1);
+  WarpMinIndex2(value, index);
 
-  if ((a & 0xFFFF) > (a >> 16))
-  {
-    a >>= 16;
-    b >>= 16;
-  }
+  const uint16_t cost = value & 0xFFFF;
+  const uint16_t temp_cost = value >> 16;
 
-  const uint32_t cost = a & 0xFFFF;
-  const int dd = 4 * threadIdx.x + (b & 0xFFFF);
-  int d = threadIdx.x;
+  const uint16_t d = index & 0xFFFF;
+  const uint16_t temp_d = index >> 16;
 
-  // d = WarpMinIndex2(cost, d);
-  // if (threadIdx.x == d) disparities[y * w + x] = dd;
-
-  uint32_t temp_cost = cost;
-  int temp_d = d;
-
-  d = WarpMinIndex2(cost, d);
-
-  if (threadIdx.x == d)
-  {
-    temp_cost = 255;
-  }
-
-  temp_d = WarpMinIndex2(temp_cost, temp_d);
-
-  if (threadIdx.x == d)
+  if (threadIdx.x == 0)
   {
     disparities[y * w + x] = (uniqueness * temp_cost < cost &&
-        abs(temp_d - d) > 1) ? 0 : dd;
+        abs(temp_d - d) > 1) ? 0 : d;
   }
 }
 
