@@ -123,14 +123,14 @@ int main(int argc, char** argv)
   data = left_result->GetData();
   result = cv::Mat(h, w, CV_8UC1);
   CUDA_DEBUG(cudaMemcpy(result.data, data, w * h, cudaMemcpyDeviceToHost));
-  cv::imshow("Left Disparities", 4 * result);
+  cv::imshow("Left Disparities", 3 * result);
 
   if (FLAGS_check && FLAGS_check_both)
   {
     data = right_result->GetData();
     result = cv::Mat(h, w, CV_8UC1);
     CUDA_DEBUG(cudaMemcpy(result.data, data, w * h, cudaMemcpyDeviceToHost));
-    cv::imshow("Right Disparities", 4 * result);
+    cv::imshow("Right Disparities", 3 * result);
   }
 
   while (cv::waitKey(10) != 27);

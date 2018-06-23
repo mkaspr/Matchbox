@@ -26,8 +26,8 @@ void AggregateKernel(const uint8_t* __restrict__ matching_cost,
 {
   uint32_t shared[MAX_DISP + 2];
 
-  const int y = blockIdx.x;
   const int k = 4 * threadIdx.x;
+  const int y = 2 * blockIdx.x + threadIdx.y;
   const uint32_t* mc = reinterpret_cast<const uint32_t*>(matching_cost);
 
   int aggr[] = { 0, 0, 0, 0 };
@@ -89,8 +89,8 @@ void AggregateKernel2(const uint8_t* __restrict__ matching_cost,
 {
   uint32_t shared[MAX_DISP + 2];
 
-  const int y = blockIdx.x;
   const int k = 4 * threadIdx.x;
+  const int y = 2 * blockIdx.x + threadIdx.y;
   const uint32_t* mc = reinterpret_cast<const uint32_t*>(matching_cost);
 
   int aggr[] = { 0, 0, 0, 0 };
@@ -152,8 +152,8 @@ void AggregateKernel3(const uint8_t* __restrict__ matching_cost,
 {
   uint32_t shared[MAX_DISP + 2];
 
-  const int x = blockIdx.x;
   const int k = 4 * threadIdx.x;
+  const int x = 2 * blockIdx.x + threadIdx.y;
   const uint32_t* mc = reinterpret_cast<const uint32_t*>(matching_cost);
 
   int aggr[] = { 0, 0, 0, 0 };
@@ -215,8 +215,8 @@ void AggregateKernel4(const uint8_t* __restrict__ matching_cost,
 {
   uint32_t shared[MAX_DISP + 2];
 
-  const int x = blockIdx.x;
   const int k = 4 * threadIdx.x;
+  const int x = 2 * blockIdx.x + threadIdx.y;
   const uint32_t* mc = reinterpret_cast<const uint32_t*>(matching_cost);
 
   int aggr[] = { 0, 0, 0, 0 };
@@ -278,8 +278,10 @@ void AggregateKernel5(const uint8_t* __restrict__ matching_cost,
 {
   uint32_t shared[MAX_DISP + 2];
 
-  const int ii = blockIdx.x;
   const int k = 4 * threadIdx.x;
+  const int ii = 2 * blockIdx.x + threadIdx.y;
+  if (ii >= h + w) return;
+
   const int x = (ii < h) ? 0 : ii - h + 1;
   const int y = (ii < h) ? h - ii - 1 : 0;
   const int n = min(w - x, h - y);
@@ -347,8 +349,10 @@ void AggregateKernel6(const uint8_t* __restrict__ matching_cost,
 {
   uint32_t shared[MAX_DISP + 2];
 
-  const int ii = blockIdx.x;
   const int k = 4 * threadIdx.x;
+  const int ii = 2 * blockIdx.x + threadIdx.y;
+  if (ii >= h + w) return;
+
   const int x = (ii < h) ? 0 : ii - h + 1;
   const int y = (ii < h) ? h - ii - 1 : 0;
   const int n = min(w - x, h - y);
@@ -416,8 +420,10 @@ void AggregateKernel7(const uint8_t* __restrict__ matching_cost,
 {
   uint32_t shared[MAX_DISP + 2];
 
-  const int ii = blockIdx.x;
   const int k = 4 * threadIdx.x;
+  const int ii = 2 * blockIdx.x + threadIdx.y;
+  if (ii >= h + w) return;
+
   const int x = (ii < h) ? 0 : ii - h + 1;
   const int y = (ii < h) ? h - ii - 1 : 0;
   const int n = min(w - x, h - y);
@@ -485,8 +491,10 @@ void AggregateKernel8(const uint8_t* __restrict__ matching_cost,
 {
   uint32_t shared[MAX_DISP + 2];
 
-  const int ii = blockIdx.x;
   const int k = 4 * threadIdx.x;
+  const int ii = 2 * blockIdx.x + threadIdx.y;
+  if (ii >= h + w) return;
+
   const int x = (ii < h) ? 0 : ii - h + 1;
   const int y = (ii < h) ? h - ii - 1 : 0;
   const int n = min(w - x, h - y);
@@ -640,8 +648,8 @@ void Aggregator::AggregateHorizontal(AggregateCost& cost) const
   const int h = matching_cost_->GetHeight();
   const int d = matching_cost_->GetDepth();
 
-  const int grids = h;
-  const int blocks = d / 4;
+  const int grids = h / 2;
+  const dim3 blocks(d / 4, 2);
   const uint8_t* src = matching_cost_->GetData();
   uint8_t* dst = cost.GetData();
 
@@ -662,8 +670,8 @@ void Aggregator::AggregateVertical(AggregateCost& cost) const
   const int h = matching_cost_->GetHeight();
   const int d = matching_cost_->GetDepth();
 
-  const int grids = w;
-  const int blocks = d / 4;
+  const int grids = w / 2;
+  const dim3 blocks(d / 4, 2);
   const uint8_t* src = matching_cost_->GetData();
   uint8_t* dst = cost.GetData();
 
@@ -686,8 +694,9 @@ void Aggregator::AggregateDiagonal(AggregateCost& cost) const
   const int h = matching_cost_->GetHeight();
   const int d = matching_cost_->GetDepth();
 
-  const int blocks = d / 4;
-  const int grids = w + h - 1;
+  const dim3 blocks(d / 4, 2);
+  const int grids = (w + h) / 2; // assuming even dims
+
   const uint8_t* src = matching_cost_->GetData();
   uint8_t* dst = cost.GetData();
 

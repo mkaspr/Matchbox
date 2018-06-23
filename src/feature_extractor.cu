@@ -4,7 +4,7 @@
 #include <matchbox/feature_map.h>
 #include <matchbox/image.h>
 
-#define BLOCK_SIZE 32
+#define BLOCK_SIZE 16
 #define SHARED_PAD_X 8
 #define SHARED_PAD_Y 6
 #define SHARED_DIM_X (BLOCK_SIZE + SHARED_PAD_X)

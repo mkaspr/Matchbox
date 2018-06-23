@@ -8,55 +8,87 @@
 namespace matchbox
 {
 
-template <int MAX_DISP>
+template <typename T>
+MATCHBOX_DEVICE
+inline T WarpMinIndex2(T value, int index, int warp_size = 32)
+{
+  for (int i = warp_size >> 1; i > 0; i >>= 1)
+  {
+    T temp_value = ShuffleDown(value, i, warp_size);
+    int temp_index = ShuffleDown(index, i, warp_size);
+
+    if (temp_value < value) // TODO: check if can be used instead
+    // if ((temp_value < value) || (temp_value == value && temp_index < index))
+    {
+      value = temp_value;
+      index = temp_index;
+    }
+  }
+
+  return __shfl(index, 0, 32);
+}
+
+template <int MAX_DISP, int PATHS>
 MATCHBOX_GLOBAL
 void ComputeKernel(const uint8_t* __restrict__ costs, uint8_t* disparities,
-    int paths, float uniqueness)
+    float uniqueness)
 {
   const int w = gridDim.x;
-  const int h = gridDim.y;
+  const int h = 2 * gridDim.y;
   const int x = blockIdx.x;
-  const int y = blockIdx.y;
-  int d0 = 2 * threadIdx.x + 0;
-  int d1 = 2 * threadIdx.x + 1;
-  uint32_t cost0 = 0;
-  uint32_t cost1 = 0;
+  const int y = 2 * blockIdx.y + threadIdx.y;
+
+  uint32_t nc0 = 0;
+  uint32_t nc1 = 0;
+  const uint32_t zero = 0;
 
   const int step = h * w * MAX_DISP;
   const int offset = y * w * MAX_DISP + x * MAX_DISP;
-  const uint16_t* cc = reinterpret_cast<const uint16_t*>(costs);
+  const uint32_t* cc = reinterpret_cast<const uint32_t*>(costs);
 
-  for (int p = 0; p < paths; ++p)
+  for (int p = 0; p < PATHS; ++p)
   {
-    uint16_t c = cc[(p * step + offset) / 2 + threadIdx.x];
-    cost0 += uint8_t((c >> 0) & 0x00FF);
-    cost1 += uint8_t((c >> 8) & 0x00FF);
+    const uint32_t c = cc[((p * step + offset) >> 2) + threadIdx.x];
+    uint32_t cc0 = __byte_perm(c, zero, 0x4140);
+    uint32_t cc1 = __byte_perm(c, zero, 0x4342);
+    nc0 = __vadd2(nc0, cc0);
+    nc1 = __vadd2(nc1, cc1);
   }
 
-  uint32_t cost = min(cost0, cost1);
+  const uint32_t cost0 = uint32_t((nc0 >>  0) & 0xFFFF);
+  const uint32_t cost1 = uint32_t((nc0 >> 16) & 0xFFFF);
+  const uint32_t cost2 = uint32_t((nc1 >>  0) & 0xFFFF);
+  const uint32_t cost3 = uint32_t((nc1 >> 16) & 0xFFFF);
+
+  uint32_t cost = min(cost0, min(cost1, min(cost2, cost3)));
+  int dd = 4 * threadIdx.x;
+
+  if (cost == cost0) dd = 4 * threadIdx.x + 0;
+  else if (cost == cost1) dd = 4 * threadIdx.x + 1;
+  else if (cost == cost2) dd = 4 * threadIdx.x + 2;
+  else if (cost == cost3) dd = 4 * threadIdx.x + 3;
+
   int d = threadIdx.x;
 
-  // BlockMinIndex(cost, d, MAX_DISP / 2);
-  // if (threadIdx.x == d) disparities[y * w + x] = (cost0 <= cost1) ? d0 : d1;
+  // WarpMinIndex(cost, d);
+  // if (threadIdx.x == d) disparities[y * w + x] = dd;
 
   uint32_t temp_cost = cost;
   int temp_d = d;
 
-  BlockMinIndex(cost, d, MAX_DISP / 2);
-
-  __syncthreads();
+  d = WarpMinIndex2(cost, d);
 
   if (threadIdx.x == d)
   {
     temp_cost = 255;
   }
 
-  BlockMinIndex(temp_cost, temp_d, MAX_DISP / 2);
+  temp_d = WarpMinIndex2(temp_cost, temp_d);
 
   if (threadIdx.x == d)
   {
     disparities[y * w + x] = (uniqueness * temp_cost < cost &&
-        abs(temp_d - d) > 1) ? 0 : (cost0 <= cost1) ? d0 : d1;
+        abs(temp_d - d) > 1) ? 0 : dd;
   }
 }
 
@@ -165,8 +197,16 @@ void DisparityComputer::Compute(Image& image) const
   }
   else
   {
-    const dim3 blocks(d / 2);
-    CUDA_LAUNCH(ComputeKernel<128>, grids, blocks, 0, 0, src, dst, p, u);
+    const dim3 grids(w, h / 2);
+    const dim3 blocks(d / 4, 2);
+
+    switch (p)
+    {
+      case 1 : CUDA_LAUNCH((ComputeKernel<128, 1>), grids, blocks, 0, 0, src, dst, u); break;
+      case 2 : CUDA_LAUNCH((ComputeKernel<128, 2>), grids, blocks, 0, 0, src, dst, u); break;
+      case 4 : CUDA_LAUNCH((ComputeKernel<128, 4>), grids, blocks, 0, 0, src, dst, u); break;
+      case 8 : CUDA_LAUNCH((ComputeKernel<128, 8>), grids, blocks, 0, 0, src, dst, u); break;
+    }
   }
 }
 

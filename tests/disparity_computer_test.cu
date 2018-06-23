@@ -19,7 +19,7 @@ inline std::shared_ptr<AggregateCost> CreateAggregateCost()
   const int w = 64;
   const int h = 32;
   const int d = 128;
-  const int p = 2;
+  const int p = 1;
 
   std::shared_ptr<AggregateCost> cost;
   cost = std::make_shared<AggregateCost>();
@@ -39,16 +39,16 @@ inline std::shared_ptr<AggregateCost> CreateAggregateCost()
     }
   }
 
-  for (int i = 0; i < h; ++i)
-  {
-    for (int j = 0; j < w; ++j)
-    {
-      for (int k = 0; k < d; ++k)
-      {
-        data[index++] = 2 * (i + j + k) % d;
-      }
-    }
-  }
+  // for (int i = 0; i < h; ++i)
+  // {
+  //   for (int j = 0; j < w; ++j)
+  //   {
+  //     for (int k = 0; k < d; ++k)
+  //     {
+  //       data[index++] = 2 * (i + j + k) % d;
+  //     }
+  //   }
+  // }
 
   const cudaMemcpyKind kind = cudaMemcpyHostToDevice;
   const size_t bytes = sizeof(uint8_t) * data.size();
@@ -110,6 +110,10 @@ TEST(DisparityComputer, Compute)
     {
       const int index = i * w + j;
       const int expected = (128 - i - j) % d;
+
+      std::cout << j << " " << i << ": " << (int)expected << " " <<
+          (int)found[index] << std::endl;
+
       ASSERT_EQ((int)expected, (int)found[index]);
     }
   }

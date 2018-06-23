@@ -65,31 +65,39 @@ int main(int argc, char** argv)
   left_computer.SetInverted(false);
   left_computer.Compute(*left_disparities);
 
-  LOG(INFO) << "Computing right disparities...";
-  std::shared_ptr<Image> right_disparities;
-  right_disparities = std::make_shared<Image>();
-  DisparityComputer right_computer(aggregate_cost);
-  right_computer.SetInverted(true);
-  right_computer.Compute(*right_disparities);
-
   LOG(INFO) << "Filtering left disparities...";
   std::shared_ptr<Image> left_filtered;
   left_filtered = std::make_shared<Image>();
   MedianFilter left_filter(left_disparities);
   left_filter.Filter(*left_filtered);
 
-  LOG(INFO) << "Filtering right disparities...";
   std::shared_ptr<Image> right_filtered;
-  right_filtered = std::make_shared<Image>();
-  MedianFilter right_filter(right_disparities);
-  right_filter.Filter(*right_filtered);
+  std::shared_ptr<Image> right_disparities;
+  std::shared_ptr<DisparityComputer> right_computer;
+  std::shared_ptr<MedianFilter> right_filter;
+  std::shared_ptr<DisparityChecker> checker;
 
-  LOG(INFO) << "Checking disparities...";
-  DisparityChecker checker(left_filtered, right_filtered);
-  checker.SetMode(DisparityChecker::MODE_CHECK_LEFT);
-  checker.SetMaxDifference(1);
-  checker.Check();
+  if (FLAGS_check)
+  {
+    LOG(INFO) << "Computing right disparities...";
+    right_disparities = std::make_shared<Image>();
+    right_computer = std::make_shared<DisparityComputer>(aggregate_cost);
+    right_computer->SetInverted(true);
+    right_computer->Compute(*right_disparities);
 
+    LOG(INFO) << "Filtering right disparities...";
+    right_filtered = std::make_shared<Image>();
+    right_filter = std::make_shared<MedianFilter>(right_disparities);
+    right_filter->Filter(*right_filtered);
+
+    LOG(INFO) << "Checking disparities...";
+    checker = std::make_shared<DisparityChecker>(left_filtered, right_filtered);
+    checker->SetMode(DisparityChecker::MODE_CHECK_LEFT);
+    checker->SetMaxDifference(1);
+    checker->Check();
+  }
+
+  cudaDeviceSynchronize();
   const int iters = FLAGS_iters;
 
   std::chrono::steady_clock::time_point start =
@@ -106,9 +114,9 @@ int main(int argc, char** argv)
 
     if (FLAGS_check)
     {
-      right_computer.Compute(*right_disparities);
-      right_filter.Filter(*right_filtered);
-      checker.Check();
+      right_computer->Compute(*right_disparities);
+      right_filter->Filter(*right_filtered);
+      checker->Check();
     }
 
     cudaDeviceSynchronize();
@@ -122,8 +130,8 @@ int main(int argc, char** argv)
   const double time = duration.count() / (1000000.0 * iters);
   LOG(INFO) << "Frames per sec: " << 1.0 / time;
   LOG(INFO) << "Time per frame: " << time;
-  // current best w/o check: ~21.1 fps
-  // current best w/ check:   ~9.4 fps
+  // RELEASE: current best w/o check: ~36.0 fps
+  // RELEASE: current best w/ check:  ~12.4 fps
 
   LOG(INFO) << "Success";
   return 0;
