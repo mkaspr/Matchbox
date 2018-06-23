@@ -12,7 +12,7 @@ class AggregateCost
 
     AggregateCost();
 
-    AggregateCost(int w, int h, int d, int p);
+    AggregateCost(int w, int h, int d);
 
     AggregateCost(const AggregateCost& cost);
 
@@ -30,13 +30,11 @@ class AggregateCost
 
     int GetDepth() const;
 
-    int GetPaths() const;
+    void SetSize(int w, int h, int d);
 
-    void SetSize(int w, int h, int d, int p);
+    const uint16_t* GetData() const;
 
-    const uint8_t* GetData() const;
-
-    uint8_t* GetData();
+    uint16_t* GetData();
 
     void Clear();
 
@@ -48,9 +46,7 @@ class AggregateCost
 
     int depth_;
 
-    int paths_;
-
-    uint8_t* data_;
+    uint16_t* data_;
 };
 
 } // namespace matchbox

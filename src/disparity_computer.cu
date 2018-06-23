@@ -30,33 +30,19 @@ inline void WarpMinIndex2(uint32_t& value, uint32_t& index)
   index = __shfl(index, 0, 32);
 }
 
-template <int MAX_DISP, int PATHS>
+template <int MAX_DISP>
 MATCHBOX_GLOBAL
-void ComputeKernel(const uint8_t* __restrict__ costs, uint8_t* disparities,
+void ComputeKernel(const uint16_t* __restrict__ costs, uint8_t* disparities,
     float uniqueness)
 {
   const int w = gridDim.x;
-  const int h = 2 * gridDim.y;
   const int x = blockIdx.x;
   const int y = 2 * blockIdx.y + threadIdx.y;
 
-  uint32_t nc0 = 0;
-  uint32_t nc1 = 0;
-  const uint32_t zero = 0;
-
-  const int step = h * w * MAX_DISP;
   const int offset = y * w * MAX_DISP + x * MAX_DISP;
   const uint32_t* cc = reinterpret_cast<const uint32_t*>(costs);
-
-  for (int p = 0; p < PATHS; ++p)
-  {
-    const uint32_t c = cc[((p * step + offset) >> 2) + threadIdx.x];
-    uint32_t cc0 = __byte_perm(c, zero, 0x4140);
-    uint32_t cc1 = __byte_perm(c, zero, 0x4342);
-    nc0 = __vadd2(nc0, cc0);
-    nc1 = __vadd2(nc1, cc1);
-  }
-
+  const uint32_t nc0 = cc[(offset >> 1) + 2 * threadIdx.x + 0];
+  const uint32_t nc1 = cc[(offset >> 1) + 2 * threadIdx.x + 1];
   const uint32_t ni0 = ((4 * threadIdx.x + 1) << 16) | (4 * threadIdx.x + 0);
   const uint32_t ni1 = ((4 * threadIdx.x + 3) << 16) | (4 * threadIdx.x + 2);
 
@@ -80,25 +66,20 @@ void ComputeKernel(const uint8_t* __restrict__ costs, uint8_t* disparities,
 
 template <int MAX_DISP>
 MATCHBOX_GLOBAL
-void ComputeInvertedKernel(const uint8_t* __restrict__ costs,
+void ComputeInvertedKernel(const uint16_t* __restrict__ costs,
     uint8_t* disparities, int paths, float uniqueness)
 {
   const int w = gridDim.x;
-  const int h = gridDim.y;
   const int x = blockIdx.x;
   const int y = blockIdx.y;
   int d = threadIdx.x;
   uint32_t cost = 0;
 
-  const int step = h * w * MAX_DISP;
   const int offset = y * w * MAX_DISP + (x + d) * MAX_DISP + d;
 
   if (x + d < w)
   {
-    for (int p = 0; p < paths; ++p)
-    {
-      cost += costs[p * step + offset];
-    }
+    cost = costs[offset];
   }
   else
   {
@@ -167,32 +148,24 @@ void DisparityComputer::Compute(Image& image) const
   const int w = cost_->GetWidth();
   const int h = cost_->GetHeight();
   const int d = cost_->GetDepth();
-  const int p = cost_->GetPaths();
 
   const dim3 grids(w, h);
   const dim3 blocks(d);
 
   image.SetSize(w, h);
   uint8_t* dst = image.GetData();
-  const uint8_t* src = cost_->GetData();
+  const uint16_t* src = cost_->GetData();
   float u = uniqueness_;
 
   if (inverted_)
   {
-    CUDA_LAUNCH(ComputeInvertedKernel<128>, grids, blocks, 0, 0, src, dst, p, u);
+    CUDA_LAUNCH(ComputeInvertedKernel<128>, grids, blocks, 0, 0, src, dst, 8, u);
   }
   else
   {
     const dim3 grids(w, h / 2);
     const dim3 blocks(d / 4, 2);
-
-    switch (p)
-    {
-      case 1 : CUDA_LAUNCH((ComputeKernel<128, 1>), grids, blocks, 0, 0, src, dst, u); break;
-      case 2 : CUDA_LAUNCH((ComputeKernel<128, 2>), grids, blocks, 0, 0, src, dst, u); break;
-      case 4 : CUDA_LAUNCH((ComputeKernel<128, 4>), grids, blocks, 0, 0, src, dst, u); break;
-      case 8 : CUDA_LAUNCH((ComputeKernel<128, 8>), grids, blocks, 0, 0, src, dst, u); break;
-    }
+    CUDA_LAUNCH(ComputeKernel<128>, grids, blocks, 0, 0, src, dst, u);
   }
 }
 

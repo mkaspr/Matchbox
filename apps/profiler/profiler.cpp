@@ -131,7 +131,7 @@ int main(int argc, char** argv)
   LOG(INFO) << "Frames per sec: " << 1.0 / time;
   LOG(INFO) << "Time per frame: " << time;
   // RELEASE: current best w/o check: ~36.0 fps
-  // RELEASE: current best w/ check:  ~12.4 fps
+  // RELEASE: current best w/ check:  ~17.5 fps
 
   LOG(INFO) << "Success";
   return 0;
