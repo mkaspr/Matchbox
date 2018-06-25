@@ -34,6 +34,7 @@ set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -arch=compute_50")
 set(CPP_CONFIG_DIR include/matchbox)
 
 set(CPP_CONFIGS
+  ${CPP_CONFIG_DIR}/config.h
   ${CPP_CONFIG_DIR}/matchbox.h
 )
 

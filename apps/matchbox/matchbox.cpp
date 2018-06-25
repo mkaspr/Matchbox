@@ -16,6 +16,19 @@ DEFINE_double(uniqueness, 0.95, "uniqueness threshold for disparity computer");
 
 using namespace matchbox;
 
+inline int GetDirections()
+{
+  switch (FLAGS_degree)
+  {
+    case 0: return Aggregator::DIR_NONE;
+    case 1: return Aggregator::DIR_HORIZONTAL;
+    case 2: return Aggregator::DIR_HORIZONTAL_VERTICAL;
+    case 3: return Aggregator::DIR_ALL;
+  }
+
+  MATCHBOX_THROW("invalid degree");
+}
+
 DisparityChecker::Mode GetCheckerMode()
 {
   return FLAGS_check_both ?
@@ -68,7 +81,7 @@ int main(int argc, char** argv)
   std::shared_ptr<AggregateCost> aggregate_cost;
   aggregate_cost = std::make_shared<AggregateCost>();
   Aggregator aggregator(matching_cost);
-  aggregator.SetDegree(FLAGS_degree);
+  aggregator.SetDirections(GetDirections());
   aggregator.Aggregate(*aggregate_cost);
 
   LOG(INFO) << "Computing left disparities...";

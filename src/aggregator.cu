@@ -1,4 +1,5 @@
 #include <matchbox/aggregator.h>
+#include <bitset>
 #include <matchbox/aggregate_cost.h>
 #include <matchbox/exception.h>
 #include <matchbox/matching_cost.h>
@@ -6,6 +7,21 @@
 
 namespace matchbox
 {
+
+MATCHBOX_DEVICE
+inline uint32_t WarpMin2(uint32_t value)
+{
+  value = ((value & 0xFFFF) > (value >> 16)) ?
+        value & 0xFFFF0000 | value >> 16 :
+        value & 0x0000FFFF | value << 16;
+
+  for (int i = 16; i > 0; i >>= 1)
+  {
+    value = __vminu2(value, __shfl_down(value, i, 32));
+  }
+
+  return __shfl(value, 0, 32);
+}
 
 MATCHBOX_GLOBAL
 void AggregateMatchingKernel(const uint8_t* __restrict__ matching_cost,
@@ -22,6 +38,57 @@ void AggregateMatchingKernel(const uint8_t* __restrict__ matching_cost,
 template <int MAX_DISP>
 MATCHBOX_GLOBAL
 void AggregateKernel(const uint8_t* __restrict__ matching_cost,
+    uint16_t* __restrict__ aggregate_cost, int w, int h, uint8_t P1, uint8_t P2)
+{
+  uint32_t shared[(MAX_DISP >> 1) + 2];
+
+  const int k = 4 * threadIdx.x;
+  const int y = 2 * blockIdx.x + threadIdx.y;
+  const uint32_t* mc = reinterpret_cast<const uint32_t*>(matching_cost);
+  uint32_t* ac = reinterpret_cast<uint32_t*>(aggregate_cost);
+
+  uint32_t half_aggr_l = 0;
+  uint32_t half_aggr_h = 0;
+  uint32_t half_min = 0;
+
+  const uint32_t max_cost = 64 + P2;
+  const uint32_t v2_max_cost = __byte_perm(max_cost, 0, 0x4040);
+  const uint32_t v2_P1 = __byte_perm(P1, 0, 0x4040);
+  const uint32_t v2_P2 = __byte_perm(P2, 0, 0x4040);
+
+  shared[2 * threadIdx.x + 0] = v2_max_cost;
+  shared[2 * threadIdx.x + 1] = v2_max_cost;
+  shared[2 * threadIdx.x + 2] = v2_max_cost;
+
+  for (int x = 0; x < w; ++x)
+  {
+    const int index = y * w * MAX_DISP + x * MAX_DISP + k;
+    const uint32_t costs = mc[index >> 2];
+
+    const uint32_t half_costs_l = __byte_perm(costs, 0, 0x4140);
+    const uint32_t half_costs_h = __byte_perm(costs, 0, 0x4342);
+
+    const uint32_t half_left  = __vadd2(shared[2 * threadIdx.x + 0], v2_P1);
+    const uint32_t half_mid   = __vadd2(shared[2 * threadIdx.x + 1], v2_P1);
+    const uint32_t half_right = __vadd2(shared[2 * threadIdx.x + 2], v2_P1);
+    const uint32_t half_far   = __vadd2(half_min, v2_P2);
+
+    half_aggr_l = __vadd2(half_costs_l, __vsub2(__vminu2(half_aggr_l, __vminu2(half_left, __vminu2(half_mid, half_far))), half_min));
+    half_aggr_h = __vadd2(half_costs_h, __vsub2(__vminu2(half_aggr_h, __vminu2(half_mid, __vminu2(half_right, half_far))), half_min));
+
+    ac[(index >> 1) + 0] = half_aggr_l;
+    ac[(index >> 1) + 1] = half_aggr_h;
+
+    shared[2 * threadIdx.x + 1] = half_aggr_l;
+    shared[2 * threadIdx.x + 2] = half_aggr_h;
+
+    half_min = WarpMin2(__vminu2(half_aggr_l, half_aggr_h));
+  }
+}
+
+template <int MAX_DISP>
+MATCHBOX_GLOBAL
+void AggregateKernel1(const uint8_t* __restrict__ matching_cost,
     uint16_t* __restrict__ aggregate_cost, int w, int h, uint8_t P1, uint8_t P2)
 {
   uint32_t shared[MAX_DISP + 2];
@@ -557,7 +624,7 @@ void AggregateKernel8(const uint8_t* __restrict__ matching_cost,
 
 Aggregator::Aggregator(std::shared_ptr<const MatchingCost> matching_cost) :
   matching_cost_(matching_cost),
-  degree_(3)
+  directions_(DIR_ALL)
 {
   Initialize();
 }
@@ -575,45 +642,28 @@ std::shared_ptr<const MatchingCost> Aggregator::GetMatchingCost() const
   return matching_cost_;
 }
 
-int Aggregator::GetDegree() const
+int Aggregator::GetDirections() const
 {
-  return degree_;
+  return directions_;
 }
 
-void Aggregator::SetDegree(int degree)
+void Aggregator::SetDirections(int directions)
 {
-  MATCHBOX_DEBUG(degree >= 0 && degree <= 3);
-  degree_ = degree;
+  directions_ = directions & DIR_ALL;
 }
 
 void Aggregator::Aggregate(AggregateCost& cost) const
 {
   ResizeCost(cost);
-
-  switch (degree_)
-  {
-    case 3: AggregateDiagonal(cost);
-    case 2: AggregateVertical(cost);
-    case 1: AggregateHorizontal(cost);
-
-      break;
-
-    case 0: AggregateMatching(cost);
-  }
+  AggregateMatching(cost);
+  AggregateHorizontal(cost);
+  AggregateVertical(cost);
+  AggregateDiagonal(cost);
 }
 
 int Aggregator::GetPathCount() const
 {
-  switch (degree_)
-  {
-    case 0: return 1;
-    case 1: return 2;
-    case 2: return 4;
-    case 3: return 8;
-  }
-
-  MATCHBOX_THROW("invalid degree");
-  DEVICE_RETURN(-1);
+  return std::bitset<32>(directions_).count();
 }
 
 void Aggregator::ResizeCost(AggregateCost& cost) const
@@ -626,17 +676,20 @@ void Aggregator::ResizeCost(AggregateCost& cost) const
 
 void Aggregator::AggregateMatching(AggregateCost& cost) const
 {
-  const int w = matching_cost_->GetWidth();
-  const int h = matching_cost_->GetHeight();
-  const int d = matching_cost_->GetDepth();
+  if (directions_ == DIR_NONE)
+  {
+    const int w = matching_cost_->GetWidth();
+    const int h = matching_cost_->GetHeight();
+    const int d = matching_cost_->GetDepth();
 
-  const int blocks = 512;
-  const int threads = w * h * d;
-  const int grids = GetGrids(threads, blocks);
-  const uint8_t* src = matching_cost_->GetData();
-  uint16_t* dst = cost.GetData();
+    const int blocks = 512;
+    const int threads = w * h * d;
+    const int grids = GetGrids(threads, blocks);
+    const uint8_t* src = matching_cost_->GetData();
+    uint16_t* dst = cost.GetData();
 
-  CUDA_LAUNCH(AggregateMatchingKernel, grids, blocks, 0, 0, src, dst, threads);
+    CUDA_LAUNCH(AggregateMatchingKernel, grids, blocks, 0, 0, src, dst, threads);
+  }
 }
 
 void Aggregator::AggregateHorizontal(AggregateCost& cost) const
@@ -652,11 +705,17 @@ void Aggregator::AggregateHorizontal(AggregateCost& cost) const
   const uint8_t* src = matching_cost_->GetData();
   uint16_t* dst = cost.GetData();
 
-  CUDA_LAUNCH(AggregateKernel<128>, grids, blocks, 0, 0, src, dst,
-      w, h, 20, 100);
+  if (directions_ & DIR_LEFT_TO_RIGHT)
+  {
+    CUDA_LAUNCH(AggregateKernel1<128>, grids, blocks, 0, 0, src, dst,
+        w, h, 20, 100);
+  }
 
-  CUDA_LAUNCH(AggregateKernel2<128>, grids, blocks, 0, 0, src,
-      dst, w, h, 20, 100);
+  if (directions_ & DIR_RIGHT_TO_LEFT)
+  {
+    CUDA_LAUNCH(AggregateKernel2<128>, grids, blocks, 0, 0, src,
+        dst, w, h, 20, 100);
+  }
 }
 
 void Aggregator::AggregateVertical(AggregateCost& cost) const
@@ -672,11 +731,17 @@ void Aggregator::AggregateVertical(AggregateCost& cost) const
   const uint8_t* src = matching_cost_->GetData();
   uint16_t* dst = cost.GetData();
 
-  CUDA_LAUNCH(AggregateKernel3<128>, grids, blocks, 0, 0, src,
-      dst, w, h, 20, 100);
+  if (directions_ & DIR_TOP_TO_BOTTOM)
+  {
+    CUDA_LAUNCH(AggregateKernel3<128>, grids, blocks, 0, 0, src,
+        dst, w, h, 20, 100);
+  }
 
-  CUDA_LAUNCH(AggregateKernel4<128>, grids, blocks, 0, 0, src,
-      dst, w, h, 20, 100);
+  if (directions_ & DIR_BOTTOM_TO_TOP)
+  {
+    CUDA_LAUNCH(AggregateKernel4<128>, grids, blocks, 0, 0, src,
+        dst, w, h, 20, 100);
+  }
 }
 
 void Aggregator::AggregateDiagonal(AggregateCost& cost) const
@@ -693,17 +758,29 @@ void Aggregator::AggregateDiagonal(AggregateCost& cost) const
   const uint8_t* src = matching_cost_->GetData();
   uint16_t* dst = cost.GetData();
 
-  CUDA_LAUNCH(AggregateKernel5<128>, grids, blocks, 0, 0, src,
-      dst, w, h, 20, 100);
+  if (directions_ & DIR_TOP_LEFT_TO_BOTTOM_RIGHT)
+  {
+    CUDA_LAUNCH(AggregateKernel5<128>, grids, blocks, 0, 0, src,
+        dst, w, h, 20, 100);
+  }
 
-  CUDA_LAUNCH(AggregateKernel6<128>, grids, blocks, 0, 0, src,
-      dst, w, h, 20, 100);
+  if (directions_ & DIR_BOTTOM_RIGHT_TO_TOP_LEFT)
+  {
+    CUDA_LAUNCH(AggregateKernel6<128>, grids, blocks, 0, 0, src,
+        dst, w, h, 20, 100);
+  }
 
-  CUDA_LAUNCH(AggregateKernel7<128>, grids, blocks, 0, 0, src,
-      dst, w, h, 20, 100);
+  if (directions_ & DIR_BOTTOM_LEFT_TO_TOP_RIGHT)
+  {
+    CUDA_LAUNCH(AggregateKernel7<128>, grids, blocks, 0, 0, src,
+        dst, w, h, 20, 100);
+  }
 
-  CUDA_LAUNCH(AggregateKernel8<128>, grids, blocks, 0, 0, src,
-      dst, w, h, 20, 100);
+  if (directions_ & DIR_TOP_RIGHT_TO_BOTTOM_LEFT)
+  {
+    CUDA_LAUNCH(AggregateKernel8<128>, grids, blocks, 0, 0, src,
+        dst, w, h, 20, 100);
+  }
 }
 
 void Aggregator::Initialize()

@@ -13,8 +13,8 @@ inline void WarpMinIndex2(uint32_t& value, uint32_t& index)
 {
   if ((value & 0xFFFF) > (value >> 16))
   {
-    value = value << 16 | value >> 16;
-    index = index << 16 | index >> 16;
+    value = (value << 16) | (value >> 16);
+    index = (index << 16) | (index >> 16);
   }
 
   for (int i = 16; i > 0; i >>= 1)

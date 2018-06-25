@@ -20,7 +20,7 @@ inline std::shared_ptr<MatchingCost> CreateMatchingCost()
 
   std::shared_ptr<MatchingCost> cost;
   cost = std::make_shared<MatchingCost>(w, h, d);
-  std::vector<uint8_t> data(cost->GetTotal());
+  std::vector<uint16_t> data(cost->GetTotal());
   int index = 0;
 
   for (int i = 0; i < h; ++i)
@@ -45,14 +45,14 @@ TEST(Aggregator, Constructor)
   matching_cost = std::make_shared<MatchingCost>();
   Aggregator aggregator(matching_cost);
   ASSERT_EQ(matching_cost, aggregator.GetMatchingCost());
-  ASSERT_EQ(3, aggregator.GetDegree());
+  ASSERT_EQ(Aggregator::DIR_ALL, aggregator.GetDirections());
 }
 
 TEST(Aggregator, AggregateMatching)
 {
   std::shared_ptr<MatchingCost> matching_cost = CreateMatchingCost();
   Aggregator aggregator(matching_cost);
-  aggregator.SetDegree(0);
+  aggregator.SetDirections(Aggregator::DIR_NONE);
   AggregateCost aggregate_cost;
   aggregator.Aggregate(aggregate_cost);
 
@@ -62,37 +62,13 @@ TEST(Aggregator, AggregateMatching)
 
   const int count = matching_cost->GetTotal();
   thrust::device_ptr<const uint8_t> expected_ptr(matching_cost->GetData());
-  thrust::device_ptr<const uint8_t> found_ptr(aggregate_cost.GetData());
+  thrust::device_ptr<const uint16_t> found_ptr(aggregate_cost.GetData());
   thrust::host_vector<uint8_t> expected(expected_ptr, expected_ptr + count);
-  thrust::host_vector<uint8_t> found(found_ptr, found_ptr + count);
+  thrust::host_vector<uint16_t> found(found_ptr, found_ptr + count);
 
   for (int i = 0; i < (int)expected.size(); ++i)
   {
-    ASSERT_EQ(uint8_t(expected[i]), found[i]);
-  }
-}
-
-TEST(Aggregator, AggregateHorizontal)
-{
-  std::shared_ptr<MatchingCost> matching_cost = CreateMatchingCost();
-  Aggregator aggregator(matching_cost);
-  aggregator.SetDegree(1);
-  AggregateCost aggregate_cost;
-  aggregator.Aggregate(aggregate_cost);
-
-  ASSERT_EQ(matching_cost->GetWidth(),  aggregate_cost.GetWidth());
-  ASSERT_EQ(matching_cost->GetHeight(), aggregate_cost.GetHeight());
-  ASSERT_EQ(matching_cost->GetDepth(),  aggregate_cost.GetDepth());
-
-  const int count = matching_cost->GetTotal();
-  thrust::device_ptr<const uint8_t> expected_ptr(matching_cost->GetData());
-  thrust::device_ptr<const uint8_t> found_ptr(aggregate_cost.GetData());
-  thrust::host_vector<uint8_t> expected(expected_ptr, expected_ptr + count);
-  thrust::host_vector<uint8_t> found(found_ptr, found_ptr + count);
-
-  for (int i = 0; i < (int)expected.size(); ++i)
-  {
-    ASSERT_EQ(uint8_t(expected[i]), found[i]);
+    ASSERT_EQ(expected[i], found[i]);
   }
 }
 

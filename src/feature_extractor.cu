@@ -4,12 +4,12 @@
 #include <matchbox/feature_map.h>
 #include <matchbox/image.h>
 
-#define BLOCK_SIZE 16
+#define BLOCK_SIZE 32
 #define SHARED_PAD_X 8
 #define SHARED_PAD_Y 6
 #define SHARED_DIM_X (BLOCK_SIZE + SHARED_PAD_X)
 #define SHARED_DIM_Y (BLOCK_SIZE + SHARED_PAD_Y)
-#define SHARED_SIZE SHARED_DIM_X * SHARED_DIM_Y
+#define SHARED_SIZE (SHARED_DIM_X * SHARED_DIM_Y)
 
 namespace matchbox
 {
@@ -33,20 +33,15 @@ inline void CopyImage(const uint8_t* __restrict__ image, uint8_t* shared,
       x = blockIdx.x * blockDim.x - 4 + shared_index % SHARED_DIM_X;
       y = blockIdx.y * blockDim.y - 3 + shared_index / SHARED_DIM_X;
       image_index = y * w + x;
-
       shared[shared_index] = (x >= 0 && y >= 0 && x < w && y < h) ? image[image_index] : 0;
     }
   }
-
-  __syncthreads();
 }
 
 MATCHBOX_DEVICE
-inline uint64_t ExtractFeature(const uint8_t* shared)
+inline uint64_t ExtractFeature(const uint8_t* shared, int x, int y)
 {
   uint64_t feature = 0;
-  const int x = threadIdx.x + SHARED_PAD_X / 2;
-  const int y = threadIdx.y + SHARED_PAD_Y / 2;
   int index = y * SHARED_DIM_X + x;
   const uint8_t center = shared[index];
 
@@ -54,7 +49,6 @@ inline uint64_t ExtractFeature(const uint8_t* shared)
   {
     for (int i = -4; i <= 4; ++i)
     {
-      if (j == 0 && i == 0) continue; // TODO: remove
       index = (y + j) * SHARED_DIM_X + (x + i);
       const uint8_t other = shared[index];
       feature <<= 1;
@@ -73,10 +67,13 @@ void ExtractKernel(int w, int h, const uint8_t* __restrict__ image,
   const int x = blockIdx.x * blockDim.x + threadIdx.x;
   const int y = blockIdx.y * blockDim.y + threadIdx.y;
   CopyImage(image, shared, w, h);
+  __syncthreads();
 
   if (x < w && y < h)
   {
-    features[y * w + x] = ExtractFeature(shared);
+    const int fx = threadIdx.x + SHARED_PAD_X / 2;
+    const int fy = threadIdx.y + SHARED_PAD_Y / 2;
+    features[y * w + x] = ExtractFeature(shared, fx, fy);
   }
 }
 

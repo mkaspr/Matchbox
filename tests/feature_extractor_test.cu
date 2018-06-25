@@ -32,6 +32,31 @@ inline cv::Mat CreateMat()
   return mat;
 }
 
+inline uint64_t Extract(const cv::Mat& mat, int x, int y)
+{
+  uint64_t feature = 0;
+  const uint8_t center = mat.at<uint8_t>(y, x);
+
+  for (int j = -3; j <= 3; ++j)
+  {
+    for (int i = -4; i <= 4; ++i)
+    {
+      uint8_t other = 0;
+
+      if (y + j >= 0 && y + j < mat.rows &&
+          x + i >= 0 && x + i < mat.cols)
+      {
+        other = mat.at<uint8_t>(y + j, x + i);
+      }
+
+      feature <<= 1;
+      feature |= center >= other;
+    }
+  }
+
+  return feature;
+}
+
 inline cv::Mat Extract(const cv::Mat& mat)
 {
   cv::Mat expected(mat.rows, mat.cols, CV_64FC1);
@@ -40,29 +65,7 @@ inline cv::Mat Extract(const cv::Mat& mat)
   {
     for (int x = 0; x < expected.cols; ++x)
     {
-      uint64_t feature = 0;
-      const uint8_t center = mat.at<uint8_t>(y, x);
-
-      for (int j = -3; j <= 3; ++j)
-      {
-        for (int i = -4; i <= 4; ++i)
-        {
-          if (j == 0 && i == 0) continue;
-
-          uint8_t other = 0;
-
-          if (y + j >= 0 && y + j < mat.rows &&
-              x + i >= 0 && x + i < mat.cols)
-          {
-            other = mat.at<uint8_t>(y + j, x + i);
-          }
-
-          feature <<= 1;
-          feature |= center >= other;
-        }
-      }
-
-      expected.at<uint64_t>(y, x) = feature;
+      expected.at<uint64_t>(y, x) = Extract(mat, x, y);
     }
   }
 
@@ -99,6 +102,13 @@ TEST(FeatureExtractor, Extract)
 
   for (int i = 0; i < (int)found.size(); ++i)
   {
+    if (data[i] != found[i])
+    {
+      const int x = i % image->GetWidth();
+      const int y = i / image->GetWidth();
+      std::cout << i << " (" << x << ", " << y<< "): " << data[i] << " " << found[i] << std::endl;
+    }
+
     ASSERT_EQ(data[i], found[i]);
   }
 }
