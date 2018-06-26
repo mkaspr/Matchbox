@@ -12,8 +12,8 @@ MATCHBOX_DEVICE
 inline uint32_t WarpMin2(uint32_t value)
 {
   value = ((value & 0xFFFF) > (value >> 16)) ?
-        value & 0xFFFF0000 | value >> 16 :
-        value & 0x0000FFFF | value << 16;
+        (value & 0xFFFF0000) | (value >> 16) :
+        (value & 0x0000FFFF) | (value << 16);
 
   for (int i = 16; i > 0; i >>= 1)
   {
@@ -35,78 +35,81 @@ void AggregateMatchingKernel(const uint8_t* __restrict__ matching_cost,
   }
 }
 
-template <int MAX_DISP>
-MATCHBOX_GLOBAL
-void AggregateKernel(const uint8_t* __restrict__ matching_cost,
-    uint16_t* __restrict__ aggregate_cost, int w, int h, uint8_t P1, uint8_t P2)
-{
-  uint32_t shared[(MAX_DISP >> 1) + 2];
-
-  const int k = 4 * threadIdx.x;
-  const int y = 2 * blockIdx.x + threadIdx.y;
-  const uint32_t* mc = reinterpret_cast<const uint32_t*>(matching_cost);
-  uint32_t* ac = reinterpret_cast<uint32_t*>(aggregate_cost);
-
-  uint32_t half_aggr_l = 0;
-  uint32_t half_aggr_h = 0;
-  uint32_t half_min = 0;
-
-  const uint32_t max_cost = 64 + P2;
-  const uint32_t v2_max_cost = __byte_perm(max_cost, 0, 0x4040);
-  const uint32_t v2_P1 = __byte_perm(P1, 0, 0x4040);
-  const uint32_t v2_P2 = __byte_perm(P2, 0, 0x4040);
-
-  shared[2 * threadIdx.x + 0] = v2_max_cost;
-  shared[2 * threadIdx.x + 1] = v2_max_cost;
-  shared[2 * threadIdx.x + 2] = v2_max_cost;
-
-  for (int x = 0; x < w; ++x)
-  {
-    const int index = y * w * MAX_DISP + x * MAX_DISP + k;
-    const uint32_t costs = mc[index >> 2];
-
-    const uint32_t half_costs_l = __byte_perm(costs, 0, 0x4140);
-    const uint32_t half_costs_h = __byte_perm(costs, 0, 0x4342);
-
-    const uint32_t half_left  = __vadd2(shared[2 * threadIdx.x + 0], v2_P1);
-    const uint32_t half_mid   = __vadd2(shared[2 * threadIdx.x + 1], v2_P1);
-    const uint32_t half_right = __vadd2(shared[2 * threadIdx.x + 2], v2_P1);
-    const uint32_t half_far   = __vadd2(half_min, v2_P2);
-
-    half_aggr_l = __vadd2(half_costs_l, __vsub2(__vminu2(half_aggr_l, __vminu2(half_left, __vminu2(half_mid, half_far))), half_min));
-    half_aggr_h = __vadd2(half_costs_h, __vsub2(__vminu2(half_aggr_h, __vminu2(half_mid, __vminu2(half_right, half_far))), half_min));
-
-    ac[(index >> 1) + 0] = half_aggr_l;
-    ac[(index >> 1) + 1] = half_aggr_h;
-
-    shared[2 * threadIdx.x + 1] = half_aggr_l;
-    shared[2 * threadIdx.x + 2] = half_aggr_h;
-
-    half_min = WarpMin2(__vminu2(half_aggr_l, half_aggr_h));
-  }
-}
+// template <int MAX_DISP>
+// MATCHBOX_GLOBAL
+// void AggregateKernel(const uint8_t* __restrict__ matching_cost,
+//     uint16_t* __restrict__ aggregate_cost, int w, int h, uint8_t P1, uint8_t P2)
+// {
+//   uint32_t shared[(MAX_DISP >> 1) + 2];
+//
+//   const int k = 4 * threadIdx.x;
+//   const int y = 2 * blockIdx.x + threadIdx.y;
+//   const uint32_t* mc = reinterpret_cast<const uint32_t*>(matching_cost);
+//   uint32_t* ac = reinterpret_cast<uint32_t*>(aggregate_cost);
+//
+//   uint32_t half_aggr_l = 0;
+//   uint32_t half_aggr_h = 0;
+//   uint32_t half_min = 0;
+//
+//   const uint32_t max_cost = 64 + P2;
+//   const uint32_t v2_max_cost = __byte_perm(max_cost, 0, 0x4040);
+//   const uint32_t v2_P1 = __byte_perm(P1, 0, 0x4040);
+//   const uint32_t v2_P2 = __byte_perm(P2, 0, 0x4040);
+//
+//   shared[2 * threadIdx.x + 0] = v2_max_cost;
+//   shared[2 * threadIdx.x + 1] = v2_max_cost;
+//   shared[2 * threadIdx.x + 2] = v2_max_cost;
+//
+//   for (int x = 0; x < w; ++x)
+//   {
+//     const int index = y * w * MAX_DISP + x * MAX_DISP + k;
+//     const uint32_t costs = mc[index >> 2];
+//
+//     const uint32_t half_costs_l = __byte_perm(costs, 0, 0x4140);
+//     const uint32_t half_costs_h = __byte_perm(costs, 0, 0x4342);
+//
+//     const uint32_t half_left  = __vadd2(shared[2 * threadIdx.x + 0], v2_P1);
+//     const uint32_t half_mid   = __vadd2(shared[2 * threadIdx.x + 1], v2_P1);
+//     const uint32_t half_right = __vadd2(shared[2 * threadIdx.x + 2], v2_P1);
+//     const uint32_t half_far   = __vadd2(half_min, v2_P2);
+//
+//     half_aggr_l = __vadd2(half_costs_l, __vsub2(__vminu2(half_aggr_l, __vminu2(half_left, __vminu2(half_mid, half_far))), half_min));
+//     half_aggr_h = __vadd2(half_costs_h, __vsub2(__vminu2(half_aggr_h, __vminu2(half_mid, __vminu2(half_right, half_far))), half_min));
+//
+//     ac[(index >> 1) + 0] = half_aggr_l;
+//     ac[(index >> 1) + 1] = half_aggr_h;
+//
+//     shared[2 * threadIdx.x + 1] = half_aggr_l;
+//     shared[2 * threadIdx.x + 2] = half_aggr_h;
+//
+//     half_min = WarpMin2(__vminu2(half_aggr_l, half_aggr_h));
+//   }
+// }
 
 template <int MAX_DISP>
 MATCHBOX_GLOBAL
 void AggregateKernel1(const uint8_t* __restrict__ matching_cost,
     uint16_t* __restrict__ aggregate_cost, int w, int h, uint8_t P1, uint8_t P2)
 {
-  uint32_t shared[MAX_DISP + 2];
+  MATCHBOX_SHARED uint32_t shared[2 * (MAX_DISP + 2)];
 
   const int k = 4 * threadIdx.x;
   const int y = 2 * blockIdx.x + threadIdx.y;
+  const int o = threadIdx.y * (MAX_DISP + 2);
   const uint32_t* mc = reinterpret_cast<const uint32_t*>(matching_cost);
 
   int aggr[] = { 0, 0, 0, 0 };
   int vmin = 0;
 
   const uint32_t max_cost = 64 + P2;
-  shared[k + 0] = max_cost;
-  shared[k + 1] = max_cost;
-  shared[k + 2] = max_cost;
-  shared[k + 3] = max_cost;
-  shared[k + 5] = max_cost;
-  shared[k + 6] = max_cost;
+  shared[o + k + 0] = max_cost;
+  shared[o + k + 1] = max_cost;
+  shared[o + k + 2] = max_cost;
+  shared[o + k + 3] = max_cost;
+  shared[o + k + 5] = max_cost;
+  shared[o + k + 6] = max_cost;
+
+  __syncthreads();
 
   for (int x = 0; x < w; ++x)
   {
@@ -117,15 +120,15 @@ void AggregateKernel1(const uint8_t* __restrict__ matching_cost,
     const uint8_t cost2 = (costs >> 16) & 0xFF;
     const uint8_t cost3 = (costs >> 24) & 0xFF;
 
-    const uint8_t l0 = shared[k + 0] + P1;
-    const uint8_t l1 = shared[k + 1] + P1;
-    const uint8_t l2 = shared[k + 2] + P1;
-    const uint8_t l3 = shared[k + 3] + P1;
+    const uint8_t l0 = shared[o + k + 0] + P1;
+    const uint8_t l1 = shared[o + k + 1] + P1;
+    const uint8_t l2 = shared[o + k + 2] + P1;
+    const uint8_t l3 = shared[o + k + 3] + P1;
 
-    const uint8_t r0 = shared[k + 2] + P1;
-    const uint8_t r1 = shared[k + 3] + P1;
-    const uint8_t r2 = shared[k + 4] + P1;
-    const uint8_t r3 = shared[k + 5] + P1;
+    const uint8_t r0 = shared[o + k + 2] + P1;
+    const uint8_t r1 = shared[o + k + 3] + P1;
+    const uint8_t r2 = shared[o + k + 4] + P1;
+    const uint8_t r3 = shared[o + k + 5] + P1;
 
     const uint8_t f = vmin + P2;
 
@@ -139,13 +142,15 @@ void AggregateKernel1(const uint8_t* __restrict__ matching_cost,
     aggregate_cost[index + 2] = aggr[2];
     aggregate_cost[index + 3] = aggr[3];
 
-    shared[k + 1] = aggr[0];
-    shared[k + 2] = aggr[1];
-    shared[k + 3] = aggr[2];
-    shared[k + 4] = aggr[3];
+    __syncthreads();
+
+    shared[o + k + 1] = aggr[0];
+    shared[o + k + 2] = aggr[1];
+    shared[o + k + 3] = aggr[2];
+    shared[o + k + 4] = aggr[3];
 
     const int a = min(aggr[0], min(aggr[1], min(aggr[2], aggr[3])));
-    vmin = (uint8_t)WarpMin(a);
+    vmin = WarpMin(a);
   }
 }
 
@@ -154,22 +159,25 @@ MATCHBOX_GLOBAL
 void AggregateKernel2(const uint8_t* __restrict__ matching_cost,
     uint16_t* __restrict__ aggregate_cost, int w, int h, uint8_t P1, uint8_t P2)
 {
-  uint32_t shared[MAX_DISP + 2];
+  MATCHBOX_SHARED uint32_t shared[2 * (MAX_DISP + 2)];
 
   const int k = 4 * threadIdx.x;
   const int y = 2 * blockIdx.x + threadIdx.y;
+  const int o = threadIdx.y * (MAX_DISP + 2);
   const uint32_t* mc = reinterpret_cast<const uint32_t*>(matching_cost);
 
   int aggr[] = { 0, 0, 0, 0 };
   int vmin = 0;
 
   const uint32_t max_cost = 64 + P2;
-  shared[k + 0] = max_cost;
-  shared[k + 1] = max_cost;
-  shared[k + 2] = max_cost;
-  shared[k + 3] = max_cost;
-  shared[k + 5] = max_cost;
-  shared[k + 6] = max_cost;
+  shared[o + k + 0] = max_cost;
+  shared[o + k + 1] = max_cost;
+  shared[o + k + 2] = max_cost;
+  shared[o + k + 3] = max_cost;
+  shared[o + k + 5] = max_cost;
+  shared[o + k + 6] = max_cost;
+
+  __syncthreads();
 
   for (int x = w - 1; x >= 0; --x)
   {
@@ -180,15 +188,15 @@ void AggregateKernel2(const uint8_t* __restrict__ matching_cost,
     const uint8_t cost2 = (costs >> 16) & 0xFF;
     const uint8_t cost3 = (costs >> 24) & 0xFF;
 
-    const uint8_t l0 = shared[k + 0] + P1;
-    const uint8_t l1 = shared[k + 1] + P1;
-    const uint8_t l2 = shared[k + 2] + P1;
-    const uint8_t l3 = shared[k + 3] + P1;
+    const uint8_t l0 = shared[o + k + 0] + P1;
+    const uint8_t l1 = shared[o + k + 1] + P1;
+    const uint8_t l2 = shared[o + k + 2] + P1;
+    const uint8_t l3 = shared[o + k + 3] + P1;
 
-    const uint8_t r0 = shared[k + 2] + P1;
-    const uint8_t r1 = shared[k + 3] + P1;
-    const uint8_t r2 = shared[k + 4] + P1;
-    const uint8_t r3 = shared[k + 5] + P1;
+    const uint8_t r0 = shared[o + k + 2] + P1;
+    const uint8_t r1 = shared[o + k + 3] + P1;
+    const uint8_t r2 = shared[o + k + 4] + P1;
+    const uint8_t r3 = shared[o + k + 5] + P1;
 
     const uint8_t f = vmin + P2;
 
@@ -202,13 +210,15 @@ void AggregateKernel2(const uint8_t* __restrict__ matching_cost,
     aggregate_cost[index + 2] += aggr[2];
     aggregate_cost[index + 3] += aggr[3];
 
-    shared[k + 1] = aggr[0];
-    shared[k + 2] = aggr[1];
-    shared[k + 3] = aggr[2];
-    shared[k + 4] = aggr[3];
+    __syncthreads();
+
+    shared[o + k + 1] = aggr[0];
+    shared[o + k + 2] = aggr[1];
+    shared[o + k + 3] = aggr[2];
+    shared[o + k + 4] = aggr[3];
 
     const int a = min(aggr[0], min(aggr[1], min(aggr[2], aggr[3])));
-    vmin = (uint8_t)WarpMin(a);
+    vmin = WarpMin(a);
   }
 }
 
@@ -217,22 +227,25 @@ MATCHBOX_GLOBAL
 void AggregateKernel3(const uint8_t* __restrict__ matching_cost,
     uint16_t* __restrict__ aggregate_cost, int w, int h, uint8_t P1, uint8_t P2)
 {
-  uint32_t shared[MAX_DISP + 2];
+  MATCHBOX_SHARED uint32_t shared[2 * (MAX_DISP + 2)];
 
   const int k = 4 * threadIdx.x;
   const int x = 2 * blockIdx.x + threadIdx.y;
+  const int o = threadIdx.y * (MAX_DISP + 2);
   const uint32_t* mc = reinterpret_cast<const uint32_t*>(matching_cost);
 
   int aggr[] = { 0, 0, 0, 0 };
   int vmin = 0;
 
   const uint32_t max_cost = 64 + P2;
-  shared[k + 0] = max_cost;
-  shared[k + 1] = max_cost;
-  shared[k + 2] = max_cost;
-  shared[k + 3] = max_cost;
-  shared[k + 5] = max_cost;
-  shared[k + 6] = max_cost;
+  shared[o + k + 0] = max_cost;
+  shared[o + k + 1] = max_cost;
+  shared[o + k + 2] = max_cost;
+  shared[o + k + 3] = max_cost;
+  shared[o + k + 5] = max_cost;
+  shared[o + k + 6] = max_cost;
+
+  __syncthreads();
 
   for (int y = 0; y < h; ++y)
   {
@@ -243,15 +256,15 @@ void AggregateKernel3(const uint8_t* __restrict__ matching_cost,
     const uint8_t cost2 = (costs >> 16) & 0xFF;
     const uint8_t cost3 = (costs >> 24) & 0xFF;
 
-    const uint8_t l0 = shared[k + 0] + P1;
-    const uint8_t l1 = shared[k + 1] + P1;
-    const uint8_t l2 = shared[k + 2] + P1;
-    const uint8_t l3 = shared[k + 3] + P1;
+    const uint8_t l0 = shared[o + k + 0] + P1;
+    const uint8_t l1 = shared[o + k + 1] + P1;
+    const uint8_t l2 = shared[o + k + 2] + P1;
+    const uint8_t l3 = shared[o + k + 3] + P1;
 
-    const uint8_t r0 = shared[k + 2] + P1;
-    const uint8_t r1 = shared[k + 3] + P1;
-    const uint8_t r2 = shared[k + 4] + P1;
-    const uint8_t r3 = shared[k + 5] + P1;
+    const uint8_t r0 = shared[o + k + 2] + P1;
+    const uint8_t r1 = shared[o + k + 3] + P1;
+    const uint8_t r2 = shared[o + k + 4] + P1;
+    const uint8_t r3 = shared[o + k + 5] + P1;
 
     const uint8_t f = vmin + P2;
 
@@ -265,13 +278,15 @@ void AggregateKernel3(const uint8_t* __restrict__ matching_cost,
     aggregate_cost[index + 2] += aggr[2];
     aggregate_cost[index + 3] += aggr[3];
 
-    shared[k + 1] = aggr[0];
-    shared[k + 2] = aggr[1];
-    shared[k + 3] = aggr[2];
-    shared[k + 4] = aggr[3];
+    __syncthreads();
+
+    shared[o + k + 1] = aggr[0];
+    shared[o + k + 2] = aggr[1];
+    shared[o + k + 3] = aggr[2];
+    shared[o + k + 4] = aggr[3];
 
     const int a = min(aggr[0], min(aggr[1], min(aggr[2], aggr[3])));
-    vmin = (uint8_t)WarpMin(a);
+    vmin = WarpMin(a);
   }
 }
 
@@ -280,22 +295,25 @@ MATCHBOX_GLOBAL
 void AggregateKernel4(const uint8_t* __restrict__ matching_cost,
     uint16_t* __restrict__ aggregate_cost, int w, int h, uint8_t P1, uint8_t P2)
 {
-  uint32_t shared[MAX_DISP + 2];
+  MATCHBOX_SHARED uint32_t shared[2 * (MAX_DISP + 2)];
 
   const int k = 4 * threadIdx.x;
   const int x = 2 * blockIdx.x + threadIdx.y;
+  const int o = threadIdx.y * (MAX_DISP + 2);
   const uint32_t* mc = reinterpret_cast<const uint32_t*>(matching_cost);
 
   int aggr[] = { 0, 0, 0, 0 };
   int vmin = 0;
 
   const uint32_t max_cost = 64 + P2;
-  shared[k + 0] = max_cost;
-  shared[k + 1] = max_cost;
-  shared[k + 2] = max_cost;
-  shared[k + 3] = max_cost;
-  shared[k + 5] = max_cost;
-  shared[k + 6] = max_cost;
+  shared[o + k + 0] = max_cost;
+  shared[o + k + 1] = max_cost;
+  shared[o + k + 2] = max_cost;
+  shared[o + k + 3] = max_cost;
+  shared[o + k + 5] = max_cost;
+  shared[o + k + 6] = max_cost;
+
+  __syncthreads();
 
   for (int y = h - 1; y >= 0; --y)
   {
@@ -306,16 +324,15 @@ void AggregateKernel4(const uint8_t* __restrict__ matching_cost,
     const uint8_t cost2 = (costs >> 16) & 0xFF;
     const uint8_t cost3 = (costs >> 24) & 0xFF;
 
-    const uint8_t l0 = shared[k + 0] + P1;
-    const uint8_t l1 = shared[k + 1] + P1;
-    const uint8_t l2 = shared[k + 2] + P1;
-    const uint8_t l3 = shared[k + 3] + P1;
+    const uint8_t l0 = shared[o + k + 0] + P1;
+    const uint8_t l1 = shared[o + k + 1] + P1;
+    const uint8_t l2 = shared[o + k + 2] + P1;
+    const uint8_t l3 = shared[o + k + 3] + P1;
 
-    const uint8_t r0 = shared[k + 2] + P1;
-    const uint8_t r1 = shared[k + 3] + P1;
-    const uint8_t r2 = shared[k + 4] + P1;
-    const uint8_t r3 = shared[k + 5] + P1;
-
+    const uint8_t r0 = shared[o + k + 2] + P1;
+    const uint8_t r1 = shared[o + k + 3] + P1;
+    const uint8_t r2 = shared[o + k + 4] + P1;
+    const uint8_t r3 = shared[o + k + 5] + P1;
     const uint8_t f = vmin + P2;
 
     aggr[0] = cost0 + min(aggr[0], min(l0, min(r0, f))) - vmin;
@@ -328,13 +345,15 @@ void AggregateKernel4(const uint8_t* __restrict__ matching_cost,
     aggregate_cost[index + 2] += aggr[2];
     aggregate_cost[index + 3] += aggr[3];
 
-    shared[k + 1] = aggr[0];
-    shared[k + 2] = aggr[1];
-    shared[k + 3] = aggr[2];
-    shared[k + 4] = aggr[3];
+    __syncthreads();
+
+    shared[o + k + 1] = aggr[0];
+    shared[o + k + 2] = aggr[1];
+    shared[o + k + 3] = aggr[2];
+    shared[o + k + 4] = aggr[3];
 
     const int a = min(aggr[0], min(aggr[1], min(aggr[2], aggr[3])));
-    vmin = (uint8_t)WarpMin(a);
+    vmin = WarpMin(a);
   }
 }
 
@@ -343,28 +362,31 @@ MATCHBOX_GLOBAL
 void AggregateKernel5(const uint8_t* __restrict__ matching_cost,
     uint16_t* __restrict__ aggregate_cost, int w, int h, uint8_t P1, uint8_t P2)
 {
-  uint32_t shared[MAX_DISP + 2];
+  MATCHBOX_SHARED uint32_t shared[2 * (MAX_DISP + 2)];
 
   const int k = 4 * threadIdx.x;
   const int ii = 2 * blockIdx.x + threadIdx.y;
+  const int o = threadIdx.y * (MAX_DISP + 2);
   if (ii >= h + w) return;
+
+  const uint32_t* mc = reinterpret_cast<const uint32_t*>(matching_cost);
 
   const int x = (ii < h) ? 0 : ii - h + 1;
   const int y = (ii < h) ? h - ii - 1 : 0;
   const int n = min(w - x, h - y);
 
-  const uint32_t* mc = reinterpret_cast<const uint32_t*>(matching_cost);
-
   int aggr[] = { 0, 0, 0, 0 };
   int vmin = 0;
 
   const uint32_t max_cost = 64 + P2;
-  shared[k + 0] = max_cost;
-  shared[k + 1] = max_cost;
-  shared[k + 2] = max_cost;
-  shared[k + 3] = max_cost;
-  shared[k + 5] = max_cost;
-  shared[k + 6] = max_cost;
+  shared[o + k + 0] = max_cost;
+  shared[o + k + 1] = max_cost;
+  shared[o + k + 2] = max_cost;
+  shared[o + k + 3] = max_cost;
+  shared[o + k + 5] = max_cost;
+  shared[o + k + 6] = max_cost;
+
+  __syncthreads();
 
   for (int i = 0; i < n; ++i)
   {
@@ -377,15 +399,15 @@ void AggregateKernel5(const uint8_t* __restrict__ matching_cost,
     const uint8_t cost2 = (costs >> 16) & 0xFF;
     const uint8_t cost3 = (costs >> 24) & 0xFF;
 
-    const uint8_t l0 = shared[k + 0] + P1;
-    const uint8_t l1 = shared[k + 1] + P1;
-    const uint8_t l2 = shared[k + 2] + P1;
-    const uint8_t l3 = shared[k + 3] + P1;
+    const uint8_t l0 = shared[o + k + 0] + P1;
+    const uint8_t l1 = shared[o + k + 1] + P1;
+    const uint8_t l2 = shared[o + k + 2] + P1;
+    const uint8_t l3 = shared[o + k + 3] + P1;
 
-    const uint8_t r0 = shared[k + 2] + P1;
-    const uint8_t r1 = shared[k + 3] + P1;
-    const uint8_t r2 = shared[k + 4] + P1;
-    const uint8_t r3 = shared[k + 5] + P1;
+    const uint8_t r0 = shared[o + k + 2] + P1;
+    const uint8_t r1 = shared[o + k + 3] + P1;
+    const uint8_t r2 = shared[o + k + 4] + P1;
+    const uint8_t r3 = shared[o + k + 5] + P1;
 
     const uint8_t f = vmin + P2;
 
@@ -399,13 +421,15 @@ void AggregateKernel5(const uint8_t* __restrict__ matching_cost,
     aggregate_cost[index + 2] += aggr[2];
     aggregate_cost[index + 3] += aggr[3];
 
-    shared[k + 1] = aggr[0];
-    shared[k + 2] = aggr[1];
-    shared[k + 3] = aggr[2];
-    shared[k + 4] = aggr[3];
+    __syncthreads();
+
+    shared[o + k + 1] = aggr[0];
+    shared[o + k + 2] = aggr[1];
+    shared[o + k + 3] = aggr[2];
+    shared[o + k + 4] = aggr[3];
 
     const int a = min(aggr[0], min(aggr[1], min(aggr[2], aggr[3])));
-    vmin = (uint8_t)WarpMin(a);
+    vmin = WarpMin(a);
   }
 }
 
@@ -414,28 +438,31 @@ MATCHBOX_GLOBAL
 void AggregateKernel6(const uint8_t* __restrict__ matching_cost,
     uint16_t* __restrict__ aggregate_cost, int w, int h, uint8_t P1, uint8_t P2)
 {
-  uint32_t shared[MAX_DISP + 2];
+  MATCHBOX_SHARED uint32_t shared[2 * (MAX_DISP + 2)];
 
   const int k = 4 * threadIdx.x;
   const int ii = 2 * blockIdx.x + threadIdx.y;
+  const int o = threadIdx.y * (MAX_DISP + 2);
   if (ii >= h + w) return;
+
+  const uint32_t* mc = reinterpret_cast<const uint32_t*>(matching_cost);
 
   const int x = (ii < h) ? 0 : ii - h + 1;
   const int y = (ii < h) ? h - ii - 1 : 0;
   const int n = min(w - x, h - y);
 
-  const uint32_t* mc = reinterpret_cast<const uint32_t*>(matching_cost);
-
   int aggr[] = { 0, 0, 0, 0 };
   int vmin = 0;
 
   const uint32_t max_cost = 64 + P2;
-  shared[k + 0] = max_cost;
-  shared[k + 1] = max_cost;
-  shared[k + 2] = max_cost;
-  shared[k + 3] = max_cost;
-  shared[k + 5] = max_cost;
-  shared[k + 6] = max_cost;
+  shared[o + k + 0] = max_cost;
+  shared[o + k + 1] = max_cost;
+  shared[o + k + 2] = max_cost;
+  shared[o + k + 3] = max_cost;
+  shared[o + k + 5] = max_cost;
+  shared[o + k + 6] = max_cost;
+
+  __syncthreads();
 
   for (int i = 0; i < n; ++i)
   {
@@ -448,15 +475,15 @@ void AggregateKernel6(const uint8_t* __restrict__ matching_cost,
     const uint8_t cost2 = (costs >> 16) & 0xFF;
     const uint8_t cost3 = (costs >> 24) & 0xFF;
 
-    const uint8_t l0 = shared[k + 0] + P1;
-    const uint8_t l1 = shared[k + 1] + P1;
-    const uint8_t l2 = shared[k + 2] + P1;
-    const uint8_t l3 = shared[k + 3] + P1;
+    const uint8_t l0 = shared[o + k + 0] + P1;
+    const uint8_t l1 = shared[o + k + 1] + P1;
+    const uint8_t l2 = shared[o + k + 2] + P1;
+    const uint8_t l3 = shared[o + k + 3] + P1;
 
-    const uint8_t r0 = shared[k + 2] + P1;
-    const uint8_t r1 = shared[k + 3] + P1;
-    const uint8_t r2 = shared[k + 4] + P1;
-    const uint8_t r3 = shared[k + 5] + P1;
+    const uint8_t r0 = shared[o + k + 2] + P1;
+    const uint8_t r1 = shared[o + k + 3] + P1;
+    const uint8_t r2 = shared[o + k + 4] + P1;
+    const uint8_t r3 = shared[o + k + 5] + P1;
 
     const uint8_t f = vmin + P2;
 
@@ -470,13 +497,15 @@ void AggregateKernel6(const uint8_t* __restrict__ matching_cost,
     aggregate_cost[index + 2] += aggr[2];
     aggregate_cost[index + 3] += aggr[3];
 
-    shared[k + 1] = aggr[0];
-    shared[k + 2] = aggr[1];
-    shared[k + 3] = aggr[2];
-    shared[k + 4] = aggr[3];
+    __syncthreads();
+
+    shared[o + k + 1] = aggr[0];
+    shared[o + k + 2] = aggr[1];
+    shared[o + k + 3] = aggr[2];
+    shared[o + k + 4] = aggr[3];
 
     const int a = min(aggr[0], min(aggr[1], min(aggr[2], aggr[3])));
-    vmin = (uint8_t)WarpMin(a);
+    vmin = WarpMin(a);
   }
 }
 
@@ -485,28 +514,31 @@ MATCHBOX_GLOBAL
 void AggregateKernel7(const uint8_t* __restrict__ matching_cost,
     uint16_t* __restrict__ aggregate_cost, int w, int h, uint8_t P1, uint8_t P2)
 {
-  uint32_t shared[MAX_DISP + 2];
+  MATCHBOX_SHARED uint32_t shared[2 * (MAX_DISP + 2)];
 
   const int k = 4 * threadIdx.x;
   const int ii = 2 * blockIdx.x + threadIdx.y;
+  const int o = threadIdx.y * (MAX_DISP + 2);
   if (ii >= h + w) return;
+
+  const uint32_t* mc = reinterpret_cast<const uint32_t*>(matching_cost);
 
   const int x = (ii < h) ? 0 : ii - h + 1;
   const int y = (ii < h) ? h - ii - 1 : 0;
   const int n = min(w - x, h - y);
 
-  const uint32_t* mc = reinterpret_cast<const uint32_t*>(matching_cost);
-
   int aggr[] = { 0, 0, 0, 0 };
   int vmin = 0;
 
   const uint32_t max_cost = 64 + P2;
-  shared[k + 0] = max_cost;
-  shared[k + 1] = max_cost;
-  shared[k + 2] = max_cost;
-  shared[k + 3] = max_cost;
-  shared[k + 5] = max_cost;
-  shared[k + 6] = max_cost;
+  shared[o + k + 0] = max_cost;
+  shared[o + k + 1] = max_cost;
+  shared[o + k + 2] = max_cost;
+  shared[o + k + 3] = max_cost;
+  shared[o + k + 5] = max_cost;
+  shared[o + k + 6] = max_cost;
+
+  __syncthreads();
 
   for (int i = 0; i < n; ++i)
   {
@@ -519,15 +551,15 @@ void AggregateKernel7(const uint8_t* __restrict__ matching_cost,
     const uint8_t cost2 = (costs >> 16) & 0xFF;
     const uint8_t cost3 = (costs >> 24) & 0xFF;
 
-    const uint8_t l0 = shared[k + 0] + P1;
-    const uint8_t l1 = shared[k + 1] + P1;
-    const uint8_t l2 = shared[k + 2] + P1;
-    const uint8_t l3 = shared[k + 3] + P1;
+    const uint8_t l0 = shared[o + k + 0] + P1;
+    const uint8_t l1 = shared[o + k + 1] + P1;
+    const uint8_t l2 = shared[o + k + 2] + P1;
+    const uint8_t l3 = shared[o + k + 3] + P1;
 
-    const uint8_t r0 = shared[k + 2] + P1;
-    const uint8_t r1 = shared[k + 3] + P1;
-    const uint8_t r2 = shared[k + 4] + P1;
-    const uint8_t r3 = shared[k + 5] + P1;
+    const uint8_t r0 = shared[o + k + 2] + P1;
+    const uint8_t r1 = shared[o + k + 3] + P1;
+    const uint8_t r2 = shared[o + k + 4] + P1;
+    const uint8_t r3 = shared[o + k + 5] + P1;
 
     const uint8_t f = vmin + P2;
 
@@ -541,13 +573,15 @@ void AggregateKernel7(const uint8_t* __restrict__ matching_cost,
     aggregate_cost[index + 2] += aggr[2];
     aggregate_cost[index + 3] += aggr[3];
 
-    shared[k + 1] = aggr[0];
-    shared[k + 2] = aggr[1];
-    shared[k + 3] = aggr[2];
-    shared[k + 4] = aggr[3];
+    __syncthreads();
+
+    shared[o + k + 1] = aggr[0];
+    shared[o + k + 2] = aggr[1];
+    shared[o + k + 3] = aggr[2];
+    shared[o + k + 4] = aggr[3];
 
     const int a = min(aggr[0], min(aggr[1], min(aggr[2], aggr[3])));
-    vmin = (uint8_t)WarpMin(a);
+    vmin = WarpMin(a);
   }
 }
 
@@ -556,28 +590,31 @@ MATCHBOX_GLOBAL
 void AggregateKernel8(const uint8_t* __restrict__ matching_cost,
     uint16_t* __restrict__ aggregate_cost, int w, int h, uint8_t P1, uint8_t P2)
 {
-  uint32_t shared[MAX_DISP + 2];
+  MATCHBOX_SHARED uint32_t shared[2 * (MAX_DISP + 2)];
 
   const int k = 4 * threadIdx.x;
   const int ii = 2 * blockIdx.x + threadIdx.y;
+  const int o = threadIdx.y * (MAX_DISP + 2);
   if (ii >= h + w) return;
+
+  const uint32_t* mc = reinterpret_cast<const uint32_t*>(matching_cost);
 
   const int x = (ii < h) ? 0 : ii - h + 1;
   const int y = (ii < h) ? h - ii - 1 : 0;
   const int n = min(w - x, h - y);
 
-  const uint32_t* mc = reinterpret_cast<const uint32_t*>(matching_cost);
-
   int aggr[] = { 0, 0, 0, 0 };
   int vmin = 0;
 
   const uint32_t max_cost = 64 + P2;
-  shared[k + 0] = max_cost;
-  shared[k + 1] = max_cost;
-  shared[k + 2] = max_cost;
-  shared[k + 3] = max_cost;
-  shared[k + 5] = max_cost;
-  shared[k + 6] = max_cost;
+  shared[o + k + 0] = max_cost;
+  shared[o + k + 1] = max_cost;
+  shared[o + k + 2] = max_cost;
+  shared[o + k + 3] = max_cost;
+  shared[o + k + 5] = max_cost;
+  shared[o + k + 6] = max_cost;
+
+  __syncthreads();
 
   for (int i = 0; i < n; ++i)
   {
@@ -590,15 +627,15 @@ void AggregateKernel8(const uint8_t* __restrict__ matching_cost,
     const uint8_t cost2 = (costs >> 16) & 0xFF;
     const uint8_t cost3 = (costs >> 24) & 0xFF;
 
-    const uint8_t l0 = shared[k + 0] + P1;
-    const uint8_t l1 = shared[k + 1] + P1;
-    const uint8_t l2 = shared[k + 2] + P1;
-    const uint8_t l3 = shared[k + 3] + P1;
+    const uint8_t l0 = shared[o + k + 0] + P1;
+    const uint8_t l1 = shared[o + k + 1] + P1;
+    const uint8_t l2 = shared[o + k + 2] + P1;
+    const uint8_t l3 = shared[o + k + 3] + P1;
 
-    const uint8_t r0 = shared[k + 2] + P1;
-    const uint8_t r1 = shared[k + 3] + P1;
-    const uint8_t r2 = shared[k + 4] + P1;
-    const uint8_t r3 = shared[k + 5] + P1;
+    const uint8_t r0 = shared[o + k + 2] + P1;
+    const uint8_t r1 = shared[o + k + 3] + P1;
+    const uint8_t r2 = shared[o + k + 4] + P1;
+    const uint8_t r3 = shared[o + k + 5] + P1;
 
     const uint8_t f = vmin + P2;
 
@@ -612,13 +649,15 @@ void AggregateKernel8(const uint8_t* __restrict__ matching_cost,
     aggregate_cost[index + 2] += aggr[2];
     aggregate_cost[index + 3] += aggr[3];
 
-    shared[k + 1] = aggr[0];
-    shared[k + 2] = aggr[1];
-    shared[k + 3] = aggr[2];
-    shared[k + 4] = aggr[3];
+    __syncthreads();
+
+    shared[o + k + 1] = aggr[0];
+    shared[o + k + 2] = aggr[1];
+    shared[o + k + 3] = aggr[2];
+    shared[o + k + 4] = aggr[3];
 
     const int a = min(aggr[0], min(aggr[1], min(aggr[2], aggr[3])));
-    vmin = (uint8_t)WarpMin(a);
+    vmin = WarpMin(a);
   }
 }
 
@@ -672,6 +711,7 @@ void Aggregator::ResizeCost(AggregateCost& cost) const
   const int h = matching_cost_->GetHeight();
   const int d = matching_cost_->GetDepth();
   cost.SetSize(w, h, d);
+  cost.Clear(); // <========================== TODO: remove
 }
 
 void Aggregator::AggregateMatching(AggregateCost& cost) const
@@ -753,7 +793,7 @@ void Aggregator::AggregateDiagonal(AggregateCost& cost) const
   const int d = matching_cost_->GetDepth();
 
   const dim3 blocks(d / 4, 2);
-  const int grids = (w + h) / 2; // assuming even dims
+  const int grids = (w + h) / 2;
 
   const uint8_t* src = matching_cost_->GetData();
   uint16_t* dst = cost.GetData();
