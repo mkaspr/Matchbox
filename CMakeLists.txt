@@ -48,6 +48,7 @@ set(CPP_HEADERS
   ${CPP_HEADER_DIR}/device.h
   ${CPP_HEADER_DIR}/disparity_checker.h
   ${CPP_HEADER_DIR}/disparity_computer.h
+  ${CPP_HEADER_DIR}/disparity_converter.h
   ${CPP_HEADER_DIR}/exception.h
   ${CPP_HEADER_DIR}/feature_extractor.h
   ${CPP_HEADER_DIR}/feature_map.h
@@ -82,6 +83,7 @@ set(CUDA_SOURCES
   ${CUDA_SOURCE_DIR}/aggregator.cu
   ${CUDA_SOURCE_DIR}/disparity_checker.cu
   ${CUDA_SOURCE_DIR}/disparity_computer.cu
+  ${CUDA_SOURCE_DIR}/disparity_converter.cu
   ${CUDA_SOURCE_DIR}/feature_extractor.cu
   ${CUDA_SOURCE_DIR}/feature_extractor.cu
   ${CUDA_SOURCE_DIR}/feature_map.cu
@@ -123,3 +125,18 @@ option(MATCHBOX_BUILD_TESTS "Build unit tests" ON)
 if(MATCHBOX_BUILD_TESTS)
   add_subdirectory(tests)
 endif()
+
+# export library
+
+include(install_package)
+
+install_package(
+  PKG_NAME MATCHBOX
+  LIB_NAME matchbox
+  VERSION  1.0
+  DESCRIPTION "Implementation of the SGM stereo matching algorithm"
+  INSTALL_INCLUDE_DIR true
+  DESTINATION ${CMAKE_INSTALL_PREFIX}
+  INCLUDE_DIRS ${REQUIRED_INCLUDE_DIRS}
+  LINK_LIBS ${REQUIRED_LIBRARIES}
+)

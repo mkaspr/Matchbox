@@ -117,4 +117,94 @@ uint8_t* Image::GetData()
   return data_;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+DepthImage::DepthImage() :
+  width_(0),
+  height_(0),
+  data_(nullptr)
+{
+}
+
+DepthImage::DepthImage(int w, int h) :
+  width_(0),
+  height_(0),
+  data_(nullptr)
+{
+  SetSize(w, h);
+}
+
+DepthImage::DepthImage(const DepthImage& image) :
+  width_(0),
+  height_(0),
+  data_(nullptr)
+{
+  *this = image;
+}
+
+DepthImage& DepthImage::operator=(const DepthImage& image)
+{
+  SetSize(image.GetWidth(), image.GetHeight());
+  const cudaMemcpyKind kind = cudaMemcpyDeviceToDevice;
+  CUDA_DEBUG(cudaMemcpy(data_, image.GetData(), GetBytes(), kind));
+  return *this;
+}
+
+DepthImage::~DepthImage()
+{
+  cudaFree(data_);
+}
+
+int DepthImage::GetBytes() const
+{
+  return sizeof(float) * GetTotal();
+}
+
+int DepthImage::GetTotal() const
+{
+  return width_ * height_;
+}
+
+int DepthImage::GetWidth() const
+{
+  return width_;
+}
+
+int DepthImage::GetHeight() const
+{
+  return height_;
+}
+
+void DepthImage::SetSize(int w, int h)
+{
+  MATCHBOX_DEBUG(w >= 0 && h >= 0);
+  const int curr_total = GetTotal();
+  width_ = w; height_ = h;
+  const int new_total = GetTotal();
+
+  if (new_total != curr_total)
+  {
+    CUDA_DEBUG(cudaFree(data_));
+    CUDA_DEBUG(cudaMalloc(&data_, GetBytes()));
+  }
+}
+
+void DepthImage::Save(const std::string& file) const
+{
+  cv::Mat image(height_, width_, CV_32FC1);
+  CUDA_DEBUG(cudaMemcpy(image.data, data_, GetBytes(), cudaMemcpyDeviceToHost));
+  image.convertTo(image, CV_16UC1, 1000);
+  cv::imwrite(file, image);
+}
+
+const float* DepthImage::GetData() const
+{
+  return data_;
+}
+
+float* DepthImage::GetData()
+{
+  return data_;
+}
+
 } // namespace matchbox

@@ -4,6 +4,8 @@
 #include <HAL/Camera/CameraDevice.h>
 #include <matchbox/matchbox.h>
 
+#include <iomanip>
+#include <sstream>
 #include <thrust/device_ptr.h>
 
 DEFINE_string(cam, "", "HAL camera uri");
@@ -57,6 +59,9 @@ int main(int argc, char** argv)
   std::shared_ptr<AggregateCost> aggregate_cost = std::make_shared<AggregateCost>();
   std::shared_ptr<Image> left_disparities = std::make_shared<Image>();
   std::shared_ptr<Image> right_disparities = std::make_shared<Image>();
+  std::shared_ptr<DepthImage> depth = std::make_shared<DepthImage>();
+
+  int frame = 0;
 
   while (true)
   {
@@ -121,7 +126,27 @@ int main(int argc, char** argv)
       checker.Check();
     }
 
+    Calibration calibration;
+    calibration.baseline = 0.1205;
+    calibration.focal_length = 258.25;
+    calibration.left_center_point = 325.8055;
+    calibration.right_center_point = 326.4072;
+
+    // calibration.focal_length *= 0.5;
+    // calibration.left_center_point *= 0.5;
+    // calibration.right_center_point *= 0.5;
+
+    DisparityConverter converter(left_result);
+    converter.SetCalibration(calibration);
+    converter.Convert(*depth);
+
     // TODO: clean up
+
+    std::stringstream file;
+    file << "depth_" << std::setw(4) << std::setfill('0') << frame << ".png";
+    LOG(INFO) << "Saving depth frame: " << file.str() << "...";
+    depth->Save(file.str());
+
     const int w = left_disparities->GetWidth();
     const int h = left_disparities->GetHeight();
     const uint8_t* data;
@@ -142,6 +167,8 @@ int main(int argc, char** argv)
 
     const int key = cv::waitKey(10);
     if (key == 27) break;
+
+    ++frame;
   }
 
   LOG(INFO) << "Success";

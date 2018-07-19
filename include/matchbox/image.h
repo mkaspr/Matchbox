@@ -51,4 +51,43 @@ class Image
     uint8_t* data_;
 };
 
+class DepthImage
+{
+  public:
+
+    DepthImage();
+
+    DepthImage(int w, int h);
+
+    DepthImage(const DepthImage& image);
+
+    DepthImage& operator=(const DepthImage& image);
+
+    ~DepthImage();
+
+    int GetBytes() const;
+
+    int GetTotal() const;
+
+    int GetWidth() const;
+
+    int GetHeight() const;
+
+    void SetSize(int w, int h);
+
+    void Save(const std::string& file) const;
+
+    const float* GetData() const;
+
+    float* GetData();
+
+  protected:
+
+    int width_;
+
+    int height_;
+
+    float* data_;
+};
+
 } // namespace matchbox
