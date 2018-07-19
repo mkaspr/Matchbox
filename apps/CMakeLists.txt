@@ -1,2 +1,3 @@
 add_subdirectory(matchbox)
+add_subdirectory(matchbox_live)
 add_subdirectory(profiler)

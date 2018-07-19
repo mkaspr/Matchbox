@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <opencv2/opencv.hpp>
 
 namespace matchbox
 {
@@ -30,6 +31,8 @@ class Image
     int GetHeight() const;
 
     void SetSize(int w, int h);
+
+    void Load(const cv::Mat& image);
 
     void Load(const std::string& file);
 

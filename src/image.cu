@@ -1,5 +1,4 @@
 #include <matchbox/image.h>
-#include <opencv2/opencv.hpp>
 #include <matchbox/device.h>
 
 namespace matchbox
@@ -76,6 +75,21 @@ void Image::SetSize(int w, int h)
     CUDA_DEBUG(cudaFree(data_));
     CUDA_DEBUG(cudaMalloc(&data_, new_total));
   }
+}
+
+void Image::Load(const cv::Mat& image)
+{
+  cv::Mat src = image.clone();
+
+  if (image.channels() == 3)
+  {
+    cv::cvtColor(src, src, CV_RGB2GRAY);
+  }
+
+  MATCHBOX_ASSERT_MSG(src.data, "unable to load source");
+  MATCHBOX_ASSERT_MSG(src.elemSize() == 1, "invalid source");
+  SetSize(src.cols, src.rows);
+  CUDA_DEBUG(cudaMemcpy(data_, src.data, GetTotal(), cudaMemcpyHostToDevice));
 }
 
 void Image::Load(const std::string& file)
